@@ -1,2 +1,98 @@
-# Android_the_old_application
-华南师范大学南海校区阿伯丁数据科学与人工智能学院人工智能1班
+# Eligo Server (Kotlin)
+
+eligo-new 是 eligo-main（原 Java 实现）的 Kotlin 重写版本，仅包含后端。本仓库不包含前端代码，且可独立于 eligo-main 构建、测试与部署。
+
+项目以 eligo-main 的 OpenAPI 契约为唯一接口事实来源，保持与 Java 版本相同的 65 条路径、80 个 HTTP 操作。
+
+## 项目概述
+
+| 项 | 说明 |
+| --- | --- |
+| 语言 | Kotlin 2.1.21（JVM 目标 17） |
+| 框架 | Spring Boot 4.1.0 |
+| 构建 | Gradle（Kotlin DSL），通过 Gradle Wrapper 统一版本 |
+| 数据库 | MySQL 8.4 |
+| 缓存 | Redis 7.2 |
+| 数据库迁移 | Flyway |
+| ORM | MyBatis-Plus 3.5.16 |
+| 认证 | Spring Security + JWT（HS256），OAuth2 Resource Server |
+| 测试 | JUnit 5 + Mockito-Kotlin 5.4.0，共 713 个测试全部通过 |
+| OpenAPI 契约 | 65 条路径、80 个 HTTP 操作，与 Java 版本一致 |
+| 源码根目录 | `src/main/kotlin/com/eligo/server/` |
+| 前端 | 本仓库不包含前端 |
+
+## 目录结构
+
+```text
+eligo-new/
+├── src/main/kotlin/com/eligo/server/
+│   ├── account/            # 账号、登录、会话、手机号绑定、账号数据导出与注销
+│   ├── activity/           # 活动（个人/企业）创建、编辑、发布、生命周期
+│   ├── agreement/          # 用户协议与同意
+│   ├── comment/            # 活动评论
+│   ├── common/             # 统一 Result、游标分页、全局异常与错误码
+│   ├── config/             # Spring Security、JWT、调度配置
+│   ├── favorite/           # 活动收藏
+│   ├── file/               # 文件上传、本地存储、图片审查与清理
+│   ├── follow/             # 用户关注与企业关注
+│   ├── integration/wechat/ # 微信登录、手机号、AccessToken 提供者
+│   ├── organization/       # 企业主体与访问能力
+│   ├── participation/      # 活动报名、取消与读取
+│   ├── post/               # 动态草稿
+│   ├── recommendation/     # 推荐
+│   └── EligoServerApplication.kt
+├── build.gradle.kts
+├── settings.gradle.kts
+├── gradle.properties
+├── gradle/wrapper/
+├── gradlew                 # Linux、macOS、WSL 构建脚本
+└── gradlew.bat             # Windows 构建脚本
+```
+
+## 构建与运行
+
+Windows（PowerShell）：
+
+```powershell
+.\gradlew.bat clean build
+.\gradlew.bat bootRun
+```
+
+Linux、macOS 或 WSL：
+
+```bash
+./gradlew clean build
+./gradlew bootRun
+```
+
+`bootRun` 会从被 Git 忽略的 `.env` 读取 MySQL、Redis 与端口等本地配置，可直接连接 Docker Compose 暴露到 `127.0.0.1` 的 MySQL 和 Redis。
+
+## 测试
+
+Windows（PowerShell）：
+
+```powershell
+.\gradlew.bat test
+```
+
+Linux、macOS 或 WSL：
+
+```bash
+./gradlew test
+```
+
+测试套件基于 JUnit 5 与 Mockito-Kotlin 5.4.0，当前共 713 个测试全部通过。
+
+## 文档链接
+
+- [OpenAPI 契约](../docs/api/openapi.yaml)
+- [原 Java 项目（eligo-main）](../Eligo-main/Eligo-main/)
+- [原 Java 后端 README](../Eligo-main/Eligo-main/eligo-server/README.md)
+- [原项目根 README](../Eligo-main/Eligo-main/README.md)
+- [项目上下文](../Eligo-main/Eligo-main/docs/context/index.md)
+- [技术架构](../Eligo-main/Eligo-main/docs/context/core/tech-stack.md)
+- [用户角色与权限](../Eligo-main/Eligo-main/docs/context/core/roles-and-permissions.md)
+- [API 治理规则](../Eligo-main/Eligo-main/docs/context/core/api-governance.md)
+- [API 实现与联调台账](../Eligo-main/Eligo-main/docs/api/README.md)
+- [部署与联调](../Eligo-main/Eligo-main/docs/context/core/deployment.md)
+- [测试指南](../Eligo-main/Eligo-main/docs/context/core/testing-guide.md)
