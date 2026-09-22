@@ -1,0 +1,5334 @@
+openapi: 3.0.3
+info:
+  title: Eligo Backend API
+  version: 1.7.0
+  description: |
+    Eligo 后端接口的唯一机器可读契约。
+    M1 个人资料契约采用“同一账号叠加能力”模型：普通参与和个人发布不拆分账号身份，
+    用户与后端预置企业建立有效 OWNER 关系后，再叠加企业操作能力。
+    当前不提供企业申请、认证、审核或身份切换接口。
+    新增或修改接口时，后端开发者必须在同一个提交中更新本文件。
+    除文件内容下载接口外，所有 JSON 响应都使用统一 Result 包装。
+  x-generated-from-code-date: 2026-08-22
+  x-contract-updated-date: 2026-08-22
+  x-m1-contract-status: REVIEW
+  x-m2-contract-status: IMPLEMENTED
+  x-m3-contract-status: IMPLEMENTED
+  x-m4-contract-status: IMPLEMENTED
+  x-m4.1-contract-status: IMPLEMENTED
+servers:
+  - url: http://127.0.0.1:8080
+    description: 本机 Docker / 微信开发者工具
+tags:
+  - name: System
+  - name: Auth
+  - name: Agreement
+  - name: Profile
+  - name: Capability
+  - name: Organization
+  - name: Activity
+  - name: Participation
+  - name: Favorite
+  - name: Comment
+  - name: Follow
+  - name: Post
+  - name: Feed
+  - name: Account
+  - name: File
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/system/ping:
+    get:
+      tags: [System]
+      operationId: ping
+      summary: 检查 API 服务是否可用
+      security: []
+      responses:
+        "200":
+          description: 服务可用
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PingResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/auth/wechat-login:
+    post:
+      tags: [Auth]
+      operationId: wechatLogin
+      summary: 使用微信临时登录凭证登录或创建账号
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WechatLoginRequest"
+      responses:
+        "200":
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: refreshToken
+      summary: 轮换刷新令牌并取得新登录令牌
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "200":
+          description: 刷新成功；旧 refreshToken 立即失效
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: 注销当前登录会话
+      responses:
+        "200":
+          $ref: "#/components/responses/VoidSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/agreements/current:
+    get:
+      tags: [Agreement]
+      operationId: listCurrentAgreements
+      summary: 查询当前生效协议
+      description: 匿名可访问；带有效令牌时 agreed 返回当前用户的同意状态。
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AgreementType"
+      responses:
+        "200":
+          description: 当前协议列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgreementItemsResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/agreements/{agreementId}:
+    parameters:
+      - $ref: "#/components/parameters/AgreementId"
+    get:
+      tags: [Agreement]
+      operationId: getAgreement
+      summary: 查询协议正文
+      description: 匿名可查看当前生效协议；登录用户还可查看自己曾同意的退休版本。
+      security:
+        - {}
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 协议详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgreementDetailResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/agreements/{agreementId}/consents:
+    parameters:
+      - $ref: "#/components/parameters/AgreementId"
+    post:
+      tags: [Agreement]
+      operationId: consentAgreement
+      summary: 同意一个当前生效协议版本
+      description: 首次同意返回 201；重复提交幂等返回 200。
+      responses:
+        "200":
+          description: 已存在同意记录
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgreementConsentResult"
+        "201":
+          description: 已创建同意记录
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgreementConsentResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/profile:
+    get:
+      tags: [Profile]
+      operationId: getMyProfile
+      summary: 获取本人资料
+      description: |
+        仅返回当前登录用户本人的完整资料。邮箱为选填项，仅在本接口回显，不进入公开主页。
+        profileCompleted 按姓名（nickname）、生日、地址、性别、有效手机号和至少一个有效兴趣标签实时判定；邮箱、头像和简介选填。
+      responses:
+        "200":
+          description: 本人资料
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyProfileResult"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      tags: [Profile]
+      operationId: updateMyProfile
+      summary: 更新本人基础资料
+      description: |
+        保存设计稿中的姓名、生日、地址、性别和选填邮箱；电话号码由手机号绑定接口维护，我的标签由兴趣接口维护。
+        当前“姓名”沿用 nickname 字段。邮箱省略、传 null 或空字符串时清空；非空时服务端去除首尾空白并转为小写后保存和判重。
+        保存后立即重新计算 profileCompleted；邮箱、头像和简介不参与完成判定。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: 更新后的本人资料
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyProfileResult"
+        "409":
+          $ref: "#/components/responses/EmailAlreadyUsed"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/avatar:
+    put:
+      tags: [Profile]
+      operationId: updateMyAvatar
+      summary: 将已上传的临时图片设置为头像
+      description: 头像为选填项，不影响 profileCompleted。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAvatarRequest"
+      responses:
+        "200":
+          description: 更新后的本人资料
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyProfileResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/nickname:
+    patch:
+      tags: [Profile]
+      operationId: updateMyNickname
+      summary: 单独修改昵称
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNicknameRequest"
+      responses:
+        "200":
+          description: 昵称修改结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NicknameChangeResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/interest-tags:
+    get:
+      tags: [Profile]
+      operationId: listInterestTags
+      summary: 获取启用的兴趣标签
+      description: 当前预置户外、运动、美食、旅行、音乐、电影、阅读、摄影、游戏和宠物10个选项。
+      responses:
+        "200":
+          description: 兴趣标签列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterestTagItemsResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/interests:
+    put:
+      tags: [Profile]
+      operationId: replaceMyInterests
+      summary: 全量替换本人兴趣
+      description: 至少选择一个有效标签；保存后立即重新计算 profileCompleted。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInterestsRequest"
+      responses:
+        "200":
+          description: 更新后的本人资料
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyProfileResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/capabilities:
+    get:
+      tags: [Capability]
+      operationId: getMyCapabilities
+      summary: 获取当前用户能力
+      description: |
+        能力由后端根据资料完成度和有效企业 OWNER 关系实时计算，不写入 JWT，也不由前端自行判断。
+        资料未完成时只返回 PUBLIC_READ；资料完成后获得 FOLLOW、PARTICIPATE 和个人发布能力；存在有效企业关系时叠加企业能力。
+        这是同一账号的能力集合，不代表需要切换账号身份。
+      x-m3-extension-status: IMPLEMENTED
+      x-m4-extension-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 当前用户能力
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserCapabilitiesResult"
+              examples:
+                incompleteProfile:
+                  summary: 资料未完成
+                  value:
+                    code: 0
+                    message: 成功
+                    requestId: "019fa7f8b1aa7253"
+                    timestamp: "2026-08-04T08:00:00Z"
+                    data:
+                      profileCompleted: false
+                      capabilities: [PUBLIC_READ]
+                personalPublisher:
+                  summary: 资料完整的普通用户或个人发布者
+                  value:
+                    code: 0
+                    message: 成功
+                    requestId: "019fa7f8b1aa7254"
+                    timestamp: "2026-08-04T08:00:00Z"
+                    data:
+                      profileCompleted: true
+                      capabilities:
+                        - PUBLIC_READ
+                        - FOLLOW
+                        - PARTICIPATE
+                        - PUBLISH_PERSONAL_ACTIVITY
+                        - PUBLISH_PERSONAL_POST
+                organizationOwner:
+                  summary: 同时拥有企业操作能力
+                  value:
+                    code: 0
+                    message: 成功
+                    requestId: "019fa7f8b1aa7255"
+                    timestamp: "2026-08-04T08:00:00Z"
+                    data:
+                      profileCompleted: true
+                      capabilities:
+                        - PUBLIC_READ
+                        - FOLLOW
+                        - PARTICIPATE
+                        - PUBLISH_PERSONAL_ACTIVITY
+                        - PUBLISH_PERSONAL_POST
+                        - PUBLISH_ORGANIZATION_ACTIVITY
+                        - PUBLISH_ORGANIZATION_POST
+                        - MANAGE_ORGANIZATION
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/organizations:
+    get:
+      tags: [Organization]
+      operationId: listMyOrganizations
+      summary: 获取当前用户可操作的企业
+      description: |
+        仅返回后端预置且当前有效的 OWNER 企业关系，首版每个用户最多一个、每个企业恰有一个有效 OWNER。
+        没有企业能力时返回 items: []。本接口不暴露联系方式密文、内部状态或其他成员信息。
+        当前不提供企业自助创建、申请、认证或审核接口。
+      responses:
+        "200":
+          description: 可操作企业列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyOrganizationItemsResult"
+              examples:
+                noOrganization:
+                  summary: 当前用户没有企业能力
+                  value:
+                    code: 0
+                    message: 成功
+                    requestId: "019fa7f8b1aa7256"
+                    timestamp: "2026-08-04T08:00:00Z"
+                    data:
+                      items: []
+                organizationOwner:
+                  summary: 当前用户是企业唯一负责人
+                  value:
+                    code: 0
+                    message: 成功
+                    requestId: "019fa7f8b1aa7257"
+                    timestamp: "2026-08-04T08:00:00Z"
+                    data:
+                      items:
+                        - organizationId: "1900000000000000401"
+                          name: 山海户外
+                          avatar: null
+                          role: OWNER
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/organizations/{organizationId}:
+    parameters:
+      - $ref: "#/components/parameters/OrganizationId"
+    get:
+      tags: [Organization]
+      operationId: getPublicOrganization
+      summary: 获取企业公开详情
+      description: |
+        仅返回企业公开资料，不暴露联系电话、唯一 OWNER、内部状态、版本或审计字段。
+        followerCount 固定返回按当前公开可用关注者统计的非负数；不可用关注者的关系保留但不计数。
+      x-implementation-status: IMPLEMENTED
+      x-m4-extension-status: IMPLEMENTED
+      security: []
+      responses:
+        "200":
+          description: 企业公开详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicOrganizationDetailResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/activities:
+    get:
+      tags: [Activity]
+      operationId: listPublicActivities
+      summary: 游标分页查询公开活动
+      description: |
+        匿名可访问。默认只返回 PUBLISHED；显式状态筛选还可查询 CANCELLED 或 ENDED。
+        活动到达 endsAt 后立即按 ENDED 返回，并从 PUBLISHED 列表移入 ENDED 列表。
+        keyword 对标题或描述执行包含匹配；topic 对规范化话题名称执行精确匹配，并与状态、分类、区县和关键词筛选按“且”共同生效。
+        未提供 userLatitude 与 userLongitude 时固定按 startsAt ASC、activityId ASC 排序。
+        两个用户坐标必须同时提供并使用 GCJ-02；提供后以 Haversine 公式计算整数米距离，按
+        distanceMeters ASC、activityId ASC 排序。radiusMeters 仅允许在用户坐标完整时提供。
+        距离模式 cursor 与用户坐标、radiusMeters、状态、分类、区县、关键词等筛选条件绑定；
+        改变筛选条件后复用旧游标返回 10001/400。cursor 是不透明字符串，客户端不得解析或改写。
+      x-implementation-status: IMPLEMENTED
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/ActivityLimit"
+        - $ref: "#/components/parameters/PublicActivityStatus"
+        - name: categoryCode
+          in: query
+          required: false
+          description: 活动单选主分类精确匹配。
+          schema:
+            $ref: "#/components/schemas/ActivityCategory"
+        - name: regionCode
+          in: query
+          required: false
+          description: 区县级行政区划编码精确匹配。
+          schema:
+            $ref: "#/components/schemas/ActivityRegionCode"
+        - name: keyword
+          in: query
+          required: false
+          description: 标题或描述包含匹配；去除首尾空白后最多 20 个 Unicode 码点，空白等同未传。
+          schema:
+            type: string
+            maxLength: 20
+        - name: topic
+          in: query
+          required: false
+          description: 活动自由文本话题精确匹配；去除首尾空白并忽略大小写，最多 20 个 Unicode 码点。
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 20
+        - name: userLatitude
+          in: query
+          required: false
+          description: 用户当前位置纬度；必须与 userLongitude 同时提供，使用 GCJ-02，服务端不保存。
+          schema:
+            $ref: "#/components/schemas/ActivityLatitude"
+        - name: userLongitude
+          in: query
+          required: false
+          description: 用户当前位置经度；必须与 userLatitude 同时提供，使用 GCJ-02，服务端不保存。
+          schema:
+            $ref: "#/components/schemas/ActivityLongitude"
+        - name: radiusMeters
+          in: query
+          required: false
+          description: 以用户坐标为圆心的精确距离过滤半径；未提供完整用户坐标时不得传入。
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 50000
+      responses:
+        "200":
+          description: 公开活动分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicActivityPageResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/activities/map:
+    get:
+      tags: [Activity]
+      operationId: listActivitiesOnMap
+      summary: 查询地图视野内的公开活动
+      description: |
+        匿名可访问。只返回数据库状态为 PUBLISHED、尚未到达 endsAt 且坐标完整的活动。
+        已取消、已结束、已隐藏或无坐标活动不返回。接口支持两个互斥模式：
+        视窗模式必须同时提供四个边界；可选完整 userLatitude/userLongitude，提供后按 distanceMeters ASC、activityId ASC 排序，
+        否则按 startsAt ASC、activityId ASC 排序。附近模式必须省略四个边界，同时提供用户坐标和 radiusMeters，
+        按 Haversine 整数米距离过滤并按 distanceMeters ASC、activityId ASC 排序。部分边界、单个用户坐标、
+        四个边界与 radiusMeters 混用均返回 10001/400。
+        响应最多返回 limit 条；truncated=true 表示当前视野内仍有更多结果，客户端应缩小地图范围后重新查询。
+        请求边界与响应坐标统一使用 GCJ-02（国测局坐标系），不得直接混入 WGS84 或 BD-09 坐标。
+        本接口不保存用户位置，不返回预计车程、天气或路线规划。
+      x-implementation-status: IMPLEMENTED
+      security: []
+      parameters:
+        - name: minLatitude
+          in: query
+          required: false
+          description: 地图视野最小纬度；视窗模式下四个边界必须同时提供，附近模式下必须省略。
+          schema:
+            $ref: "#/components/schemas/ActivityLatitude"
+        - name: maxLatitude
+          in: query
+          required: false
+          description: 地图视野最大纬度，必须大于 minLatitude。
+          schema:
+            $ref: "#/components/schemas/ActivityLatitude"
+        - name: minLongitude
+          in: query
+          required: false
+          description: 地图视野最小经度；视窗模式下四个边界必须同时提供，附近模式下必须省略。
+          schema:
+            $ref: "#/components/schemas/ActivityLongitude"
+        - name: maxLongitude
+          in: query
+          required: false
+          description: 地图视野最大经度，必须大于 minLongitude；首版不支持跨越国际日期变更线的视野。
+          schema:
+            $ref: "#/components/schemas/ActivityLongitude"
+        - name: userLatitude
+          in: query
+          required: false
+          description: 用户当前位置纬度；必须与 userLongitude 同时提供，统一使用 GCJ-02，服务端不保存。
+          schema:
+            $ref: "#/components/schemas/ActivityLatitude"
+        - name: userLongitude
+          in: query
+          required: false
+          description: 用户当前位置经度；必须与 userLatitude 同时提供，统一使用 GCJ-02，服务端不保存。
+          schema:
+            $ref: "#/components/schemas/ActivityLongitude"
+        - name: radiusMeters
+          in: query
+          required: false
+          description: 附近模式必填的精确距离半径；不得与四个视窗边界混用。
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 50000
+        - name: categoryCode
+          in: query
+          required: false
+          description: 活动单选主分类精确匹配。
+          schema:
+            $ref: "#/components/schemas/ActivityCategory"
+        - name: limit
+          in: query
+          required: false
+          description: 单个地图视野最多返回的活动数量。
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 200
+            default: 100
+      responses:
+        "200":
+          description: 地图视野内的公开活动
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityMapResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/activities/{activityId}:
+    parameters:
+      - $ref: "#/components/parameters/ActivityId"
+    get:
+      tags: [Activity]
+      operationId: getPublicActivity
+      summary: 获取公开活动详情
+      description: |
+        匿名可读取 PUBLISHED、CANCELLED 或 ENDED 活动。
+        活动到达 endsAt 后，响应中的 status 和 registrationStatus 均为 ENDED。
+        携带有效 Bearer 令牌时，同时返回本人参与状态和是否为活动发起者；匿名访问时本人状态为空。
+        registrationGender 始终返回活动的报名性别限制；organizerPhone、organizerWechat 和
+        organizerWechatQr 仅活动发起者或当前 ACTIVE 报名者可见，其他访问者返回 null。
+        DRAFT、HIDDEN、无权访问和不存在统一按 404 处理，避免泄露非公开活动。
+      x-implementation-status: IMPLEMENTED
+      x-m3-extension-status: IMPLEMENTED
+      security:
+        - {}
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 公开活动详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicActivityDetailResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+    delete:
+      tags: [Activity]
+      operationId: deleteActivityDraft
+      summary: 删除本人或本企业活动草稿
+      description: |
+        仅资源所有者可操作，不接收请求体。只允许物理删除从未发布的 DRAFT。
+        PUBLISHED、CANCELLED、ENDED 或 HIDDEN 返回 HTTP 409。
+        资源不存在、重复删除或无管理权限统一返回 HTTP 404。
+        删除活动、媒体关联和生命周期事件，但不直接删除文件对象。
+        草稿删除后，原创建幂等键继续保留到原 24 小时窗口结束。
+      x-implementation-status: IMPLEMENTED
+      responses:
+        "200":
+          $ref: "#/components/responses/VoidSuccess"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/activities/{activityId}/organizer/wechat-qr:
+    parameters:
+      - $ref: "#/components/parameters/ActivityId"
+    get:
+      tags: [Activity]
+      operationId: getActivityOrganizerWechatQr
+      summary: 获取活动组织人微信二维码
+      description: |
+        仅活动发起者或当前 ACTIVE 报名者可读取。二维码为私有文件，不支持匿名访问、已取消报名或被移除者读取。
+      x-implementation-status: IMPLEMENTED
+      x-m3-extension-status: IMPLEMENTED
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 组织人微信二维码图片
+          content:
+            image/jpeg: {}
+            image/png: {}
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/activities/{activityId}/favorite:
+    parameters:
+      - $ref: "#/components/parameters/ActivityId"
+    put:
+      tags: [Favorite]
+      operationId: favoriteActivity
+      summary: 收藏公开活动
+      description: |
+        仅登录且资料完整的用户可操作。活动必须为公开可见的 PUBLISHED、CANCELLED 或 ENDED；
+        DRAFT、HIDDEN 和不存在统一返回 404。重复收藏幂等返回原收藏时间，不创建重复关系。
+      x-implementation-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 当前收藏状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteStateResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+    get:
+      tags: [Favorite]
+      operationId: getActivityFavoriteState
+      summary: 查询本人收藏状态
+      description: |
+        先验证活动公开可见，再返回当前登录用户的收藏状态，避免泄露 DRAFT 或 HIDDEN 活动。
+      x-implementation-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 当前收藏状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteStateResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Favorite]
+      operationId: unfavoriteActivity
+      summary: 取消收藏
+      description: |
+        只删除当前登录用户与目标活动的收藏关系，不要求活动当前仍公开可见。
+        重复取消幂等返回未收藏状态，便于清理目标后来隐藏或转为草稿的历史关系。
+      x-implementation-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 未收藏状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteStateResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/activities/{activityId}/comments:
+    parameters:
+      - $ref: "#/components/parameters/ActivityId"
+    post:
+      tags: [Comment]
+      operationId: createActivityComment
+      summary: 发布活动留言或领队一级回复
+      description: |
+        登录且资料完整的用户可在尚未结束的 PUBLISHED 活动发布顶层留言；
+        仅活动发起者可回复该活动下仍有效的顶层留言，且只允许一级回复，不支持回复一级回复。
+        内容去除首尾空白后为 1 至 500 个 Unicode 码点。
+        Idempotency-Key 在评论作者范围内全局唯一：同键同规范请求返回原结果与 200，
+        同键不同请求返回业务码 11711 和 HTTP 409；首次创建返回 201。
+      x-implementation-status: IMPLEMENTED
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivityCommentCreateRequest"
+      responses:
+        "200":
+          description: 同键同请求的幂等重放结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityCommentResult"
+        "201":
+          description: 评论已创建
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityCommentResult"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+    get:
+      tags: [Comment]
+      operationId: listActivityComments
+      summary: 游标分页查询活动公开评论
+      description: |
+        匿名可读取 PUBLISHED、CANCELLED 或 ENDED 活动的评论，其他状态和不存在统一返回 404。
+        固定按 createdAt ASC、commentId ASC 排序；cursor 是不透明字符串，客户端不得解析或改写。
+        已删除评论保留占位和 parentCommentId，返回 deleted=true、content=null、author=null。
+      x-implementation-status: IMPLEMENTED
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/ParticipationLimit"
+      responses:
+        "200":
+          description: 活动公开评论分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityCommentPageResult"
+        "404":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/activities/{activityId}/comments/{commentId}:
+    parameters:
+      - $ref: "#/components/parameters/ActivityId"
+      - name: commentId
+        in: path
+        required: true
+        description: 评论编号。
+        schema:
+          $ref: "#/components/schemas/Id"
+    delete:
+      tags: [Comment]
+      operationId: deleteActivityComment
+      summary: 删除活动评论
+      description: |
+        评论作者可删除自己的评论，活动发起者可删除该活动下任意评论。
+        删除为不可恢复的软删除并立即清空正文；重复删除幂等返回删除占位。
+        目标活动后来隐藏或结束不阻断作者清理或发起者管理。
+      x-implementation-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 已删除评论占位
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityCommentResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/users/me/activities:
+    post:
+      tags: [Activity]
+      operationId: createMyActivity
+      summary: 创建本人个人活动草稿
+      description: |
+        需要个人活动发布能力。创建固定返回 DRAFT，草稿至少提供非空标题。
+        本接口只保存活动内容，不执行发布；发布使用统一 publication 命令。
+        Idempotency-Key 在当前操作人、个人主体和键值范围内生效 24 小时。
+        同键同请求重放返回原活动与 200；同键不同请求返回业务码 11601 和 HTTP 409。
+        原幂等请求创建的草稿已删除时，同键同请求返回业务码 11605 和 HTTP 409。
+      x-implementation-status: IMPLEMENTED
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonalActivityCreateRequest"
+      responses:
+        "200":
+          description: 24 小时内同键同请求的幂等重放结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedActivityDetailResult"
+        "201":
+          description: 草稿已创建
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedActivityDetailResult"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/organizations/{organizationId}/activities:
+    parameters:
+      - $ref: "#/components/parameters/OrganizationId"
+    post:
+      tags: [Activity]
+      operationId: createOrganizationActivity
+      summary: 创建企业活动草稿
+      description: |
+        需要企业活动发布能力、启用企业和当前有效唯一 OWNER 关系。
+        创建固定返回 DRAFT，草稿至少提供非空标题。
+        本接口只保存活动内容，不执行发布；发布使用统一 publication 命令。
+        Idempotency-Key 在当前操作人、企业主体和键值范围内生效 24 小时。
+        同键不同请求返回业务码 11601 和 HTTP 409；原幂等请求创建的草稿已删除时，
+        同键同请求返回业务码 11605 和 HTTP 409。
+      x-implementation-status: IMPLEMENTED
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationActivityCreateRequest"
+      responses:
+        "200":
+          description: 24 小时内同键同请求的幂等重放结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedActivityDetailResult"
+        "201":
+          description: 草稿已创建
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedActivityDetailResult"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/activities/{activityId}:
+    parameters:
+      - $ref: "#/components/parameters/ActivityId"
+    put:
+      tags: [Activity]
+      operationId: updateMyActivity
+      summary: 完整替换本人个人活动
+      description: |
+        仅允许本人活动。PUT 为完整替换并要求 version。
+        DRAFT 编辑后保持 DRAFT；PUBLISHED 编辑后保持 PUBLISHED。
+        发布必须调用统一 publication 命令。
+        PUBLISHED 编辑继续满足全部发布字段约束。
+        PUBLISHED 编辑时，原 endsAt 和替换后的 endsAt 都必须晚于服务端本次命令判定时刻；
+        任一时间已到达时返回业务码 11602 和 HTTP 409。
+        CANCELLED、ENDED 或 HIDDEN 不允许普通用户编辑；版本冲突返回业务码 11603 和 HTTP 409。
+      x-implementation-status: IMPLEMENTED
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonalActivityUpdateRequest"
+      responses:
+        "200":
+          description: 更新后的管理详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedActivityDetailResult"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/organizations/{organizationId}/activities/{activityId}:
+    parameters:
+      - $ref: "#/components/parameters/OrganizationId"
+      - $ref: "#/components/parameters/ActivityId"
+    put:
+      tags: [Activity]
+      operationId: updateOrganizationActivity
+      summary: 完整替换本企业活动
+      description: |
+        仅允许启用企业的当前有效唯一 OWNER 操作本企业活动。PUT 为完整替换并要求 version。
+        DRAFT 编辑后保持 DRAFT；PUBLISHED 编辑后保持 PUBLISHED。
+        发布必须调用统一 publication 命令。
+        PUBLISHED 编辑继续满足全部发布字段约束。
+        PUBLISHED 编辑时，原 endsAt 和替换后的 endsAt 都必须晚于服务端本次命令判定时刻；
+        任一时间已到达时返回业务码 11602 和 HTTP 409。
+        CANCELLED、ENDED 或 HIDDEN 不允许普通用户编辑。
+      x-implementation-status: IMPLEMENTED
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationActivityUpdateRequest"
+      responses:
+        "200":
+          description: 更新后的管理详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedActivityDetailResult"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/managed-activities:
+    get:
+      tags: [Activity]
+      operationId: listMyManagedActivities
+      summary: 游标分页查询当前账号可管理的活动
+      description: |
+        同时覆盖本人个人活动和当前账号可管理的企业活动。
+        固定按 updatedAt DESC、activityId DESC 排序，cursor 是不透明字符串。
+      x-implementation-status: IMPLEMENTED
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/ActivityLimit"
+        - $ref: "#/components/parameters/ManagedActivityStatus"
+        - $ref: "#/components/parameters/ActivityOwnerTypeFilter"
+      responses:
+        "200":
+          description: 可管理活动分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedActivityPageResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/managed-activities/{activityId}:
+    parameters:
+      - $ref: "#/components/parameters/ActivityId"
+    get:
+      tags: [Activity]
+      operationId: getMyManagedActivity
+      summary: 获取当前账号可管理的活动详情
+      description: |
+        返回重新编辑所需的完整字段、真实发起主体摘要、当前报名人数、乐观锁版本和审计时间。
+        不返回 operatorUserId、企业关系内部状态或敏感个人信息。
+      x-implementation-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 活动管理详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedActivityDetailResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/activities/{activityId}/publication:
+    parameters:
+      - $ref: "#/components/parameters/ActivityId"
+    put:
+      tags: [Activity]
+      operationId: publishActivity
+      summary: 发布本人或本企业活动草稿
+      description: |
+        仅资源所有者可操作，不接收请求体。
+        首次发布时，客户端先保存为 DRAFT：调用对应创建接口；编辑草稿后发布时，
+        客户端先通过对应 PUT 保存最新内容，再调用本命令。
+        当前 DRAFT 必须满足全部发布字段、时间顺序和图片规则，成功后转为 PUBLISHED。
+        DRAFT 发布时重新校验当前操作人的资料完成度；资料不完整返回 11201 和 HTTP 409，活动保持 DRAFT。
+        尚未到期（当前时间早于 endsAt）的 PUBLISHED 活动重复请求返回当前结果与 200，不重复写生命周期事件。
+        已到达 endsAt 的活动按 ENDED 处理，返回 11602 和 HTTP 409。
+        CANCELLED、ENDED 或 HIDDEN 返回 HTTP 409。
+      x-implementation-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 发布后的活动管理详情，或已发布活动的幂等结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedActivityDetailResult"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/activities/{activityId}/cancellation:
+    parameters:
+      - $ref: "#/components/parameters/ActivityId"
+    put:
+      tags: [Activity]
+      operationId: cancelActivity
+      summary: 取消本人或本企业已发布活动
+      description: |
+        仅资源所有者可操作，不接收请求体。允许 PUBLISHED 或 HIDDEN 转为 CANCELLED。
+        取消成功时，在同一事务中将所有 ACTIVE 参与关系原子转为 TERMINATED，
+        terminationReason 设为 ACTIVITY_CANCELLED，并将 participantCount 归零。
+        已取消活动重复请求返回当前结果与 200，不重复写生命周期事件。
+        DRAFT 不是可取消活动；DRAFT、ENDED，或已到达 endsAt 的 PUBLISHED/HIDDEN 返回业务码 11602 和 HTTP 409。
+        有效结束后不再把保留的 ACTIVE 参与历史改写为 TERMINATED。
+      x-implementation-status: IMPLEMENTED
+      x-m3-extension-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 取消后的活动管理详情，或已取消活动的幂等结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedActivityDetailResult"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/activities/{activityId}/participation:
+    parameters:
+      - $ref: "#/components/parameters/ActivityId"
+    put:
+      tags: [Participation]
+      operationId: joinActivity
+      summary: 报名参加活动
+      description: |
+        个人活动和企业活动均适用，参与者固定为当前登录用户，不接收请求体。
+        活动不存在、DRAFT 或 HIDDEN 时统一返回 HTTP 404；资料未完成返回业务码 11201 和 HTTP 409。
+        用户必须具备 PARTICIPATE 能力且不能是活动发起者；活动必须为 PUBLISHED、FREE、尚未开始、报名窗口开放且有剩余名额。
+        已存在 ACTIVE 记录时返回当前结果，不重复占用名额。
+        CANCELLED 记录允许重新报名，并重新执行全部报名校验。
+        terminationReason 为 REMOVED_BY_OWNER 的 TERMINATED 记录返回“已被活动发起者移除，不能再次报名”，业务码为 11709，HTTP 409。
+        重新报名成功时恢复为 ACTIVE，joinedAt 更新为服务端当前时间，并清空 cancelledAt、terminatedAt 和 terminationReason。
+        参与关系与 participantCount 在同一事务中原子更新；任一步失败时均不保留部分结果。
+        报名冲突分别使用 11701 尚未开始报名、11702 报名截止、11703 名额已满、11704 发起者本人、
+        11705 活动已开始、11706 活动已取消、11707 活动已结束、11709 被发起者移除后再次报名和
+        11710 不符合报名性别限制，均返回 HTTP 409。
+        判定顺序固定为资源可见性、ACTIVE 幂等、被发起者移除、资料完成度、活动取消、活动结束、活动开始、
+        报名尚未开始、报名截止、发起者本人、名额已满、报名性别限制；前序条件命中后不再返回后序错误。
+      x-implementation-status: IMPLEMENTED
+      x-error-precedence:
+        - RESOURCE_VISIBILITY
+        - ACTIVE_IDEMPOTENCY
+        - REMOVED_BY_OWNER_11709
+        - PROFILE_INCOMPLETE_11201
+        - ACTIVITY_CANCELLED_11706
+        - ACTIVITY_ENDED_11707
+        - ACTIVITY_STARTED_11705
+        - REGISTRATION_NOT_STARTED_11701
+        - REGISTRATION_ENDED_11702
+        - OWNER_SELF_11704
+        - CAPACITY_FULL_11703
+        - GENDER_RESTRICTION_11710
+      responses:
+        "200":
+          description: 当前有效参与关系；覆盖首次报名、重复报名和主动取消后重新报名
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityParticipationResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Participation]
+      operationId: cancelActivityParticipation
+      summary: 取消本人活动报名
+      description: |
+        取消当前登录用户对指定活动的 ACTIVE 参与关系，不接收请求体。
+        活动开始前允许取消；活动开始后返回业务码 11705 和 HTTP 409。
+        活动正常结束后参与关系仍保持 ACTIVE，但不再允许本人取消。
+        成功后状态变为 CANCELLED，并在同一事务中原子减少 participantCount。
+        CANCELLED 或 TERMINATED 记录重复取消时返回当前结果与 200，不再变更 participantCount；从未报名返回 HTTP 404。
+        对仍为 ACTIVE 的记录，活动已取消、已结束或已开始时分别返回 11706、11707、11705 和 HTTP 409。
+        判定顺序固定为参与记录不存在、CANCELLED/TERMINATED 幂等、活动取消、活动结束、活动开始、执行取消。
+      x-implementation-status: IMPLEMENTED
+      x-error-precedence:
+        - PARTICIPATION_NOT_FOUND_404
+        - INACTIVE_IDEMPOTENCY
+        - ACTIVITY_CANCELLED_11706
+        - ACTIVITY_ENDED_11707
+        - ACTIVITY_STARTED_11705
+        - CANCEL_PARTICIPATION
+      responses:
+        "200":
+          description: 当前 CANCELLED 或 TERMINATED 参与关系，或重复取消的幂等结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityParticipationResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/activities/{activityId}/participants:
+    parameters:
+      - $ref: "#/components/parameters/ActivityId"
+    get:
+      tags: [Participation]
+      operationId: listActivityParticipants
+      summary: 游标分页查询活动参与者
+      description: |
+        仅登录用户可查询公开活动的 ACTIVE 参与者。
+        固定按 joinedAt ASC、userId ASC 排序。cursor 是不透明字符串，客户端不得解析或改写。
+        响应只返回 userId、昵称、头像和本次有效报名时间，不返回报名备注、个人简介、手机号、邮箱、生日、性别或地区。
+      x-implementation-status: IMPLEMENTED
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/ParticipationLimit"
+      responses:
+        "200":
+          description: 安全参与者分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityParticipantPageResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/activities/{activityId}/participants/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/ActivityId"
+      - name: userId
+        in: path
+        required: true
+        description: 被移除参与者的用户编号。
+        schema:
+          $ref: "#/components/schemas/Id"
+    delete:
+      tags: [Participation]
+      operationId: removeActivityParticipant
+      summary: 发起者移除活动参与者
+      description: |
+        个人活动所属用户或企业当前有效 OWNER 可移除尚未结束、尚未取消活动的 ACTIVE 参与者；
+        尚未到达 endsAt 的 HIDDEN 活动仍允许其发起者管理已有参与者。
+        活动不存在、DRAFT 或当前用户无管理权限时统一返回 HTTP 404，不泄露活动或参与记录。
+        成功后参与关系转为 TERMINATED，terminationReason 设为 REMOVED_BY_OWNER，
+        并在同一事务中原子减少 participantCount。
+        已因 REMOVED_BY_OWNER 终止时幂等返回当前结果与 200，不再次改变人数。
+        已主动取消或因活动取消终止的记录返回业务码 11708 和 HTTP 409；从未报名返回 HTTP 404。
+        其他仍可管理记录在活动已取消时返回 11706/409，在 now 大于或等于 endsAt 时返回 11707/409。
+        判定顺序固定为管理权限与资源可见性、参与记录不存在、REMOVED_BY_OWNER 幂等、
+        当前参与记录不可移除、活动取消、活动结束、执行移除。
+      x-implementation-status: IMPLEMENTED
+      x-error-precedence:
+        - MANAGE_VISIBILITY_404
+        - PARTICIPATION_NOT_FOUND_404
+        - REMOVED_IDEMPOTENCY
+        - PARTICIPATION_NOT_REMOVABLE_11708
+        - ACTIVITY_CANCELLED_11706
+        - ACTIVITY_ENDED_11707
+        - REMOVE_PARTICIPANT
+      responses:
+        "200":
+          description: 当前参与关系和操作后的活动有效参与人数
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityParticipationResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/participations:
+    get:
+      tags: [Participation]
+      operationId: listMyParticipations
+      summary: 游标分页查询本人活动参与记录
+      description: |
+        只返回当前登录用户本人的参与记录，覆盖 ACTIVE、CANCELLED 和 TERMINATED。
+        固定按 joinedAt DESC、participationId DESC 排序；支持按参与状态和活动标题关键字筛选。
+      x-implementation-status: IMPLEMENTED
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/ParticipationLimit"
+        - name: status
+          in: query
+          required: false
+          description: 不传时查询全部参与状态。
+          schema:
+            $ref: "#/components/schemas/ParticipationStatus"
+        - name: keyword
+          in: query
+          required: false
+          description: 按活动标题包含匹配；服务端先去除首尾空白。
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 20
+      responses:
+        "200":
+          description: 本人参与记录分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyParticipationPageResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/favorite-activities:
+    get:
+      tags: [Favorite]
+      operationId: listMyFavoriteActivities
+      summary: 游标分页查询本人收藏活动
+      description: |
+        仅返回当前登录用户本人的收藏关系及 M2 提供的公开活动摘要。
+        固定按 favoritedAt DESC、favoriteId DESC 排序；cursor 是不透明字符串，客户端不得解析或改写。
+        目标后来变为 DRAFT 或 HIDDEN 时不返回其活动内容，用户仍可通过取消收藏接口清理本人关系。
+      x-implementation-status: IMPLEMENTED
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/ParticipationLimit"
+      responses:
+        "200":
+          description: 本人收藏活动分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteActivityPageResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/{userId}/profile:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [Profile]
+      operationId: getPublicUserProfile
+      summary: 获取用户公开资料与关注统计
+      description: |
+        匿名可访问，只返回公开头像、昵称、简介、兴趣标签以及关注数、粉丝数。
+        不返回手机号、邮箱、生日、性别、地区、企业关系或审计字段。
+        用户不存在、账号不可用或资料尚未完成时统一返回 404。
+        关注统计只计入当前公开可用的目标和关注者；不可用目标的关系仍保留，但不进入公开统计。
+      x-implementation-status: IMPLEMENTED
+      security: []
+      responses:
+        "200":
+          description: 用户公开资料
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicUserProfileResult"
+        "404":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/follows/users/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    put:
+      tags: [Follow]
+      operationId: followUser
+      summary: 关注用户
+      description: |
+        关注主体固定为当前登录用户，不接受 followerUserId。重复关注幂等返回当前关注状态。
+        新建关注要求当前用户具备 FOLLOW；资料未完成时返回 11201/409。
+        校验顺序为目标用户公开可见、禁止关注自己、重复关注幂等、FOLLOW 能力、新建关注：
+        目标用户不存在、不可用或资料未完成时返回 404；关注自己返回 11801/409；
+        已存在的关系优先幂等返回 200，不因当前资料完成度变化而失败。
+      x-error-precedence:
+        - TARGET_VISIBILITY_404
+        - SELF_FOLLOW_11801
+        - EXISTING_RELATIONSHIP_IDEMPOTENCY
+        - PROFILE_INCOMPLETE_11201
+        - CREATE_FOLLOW
+      x-implementation-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 当前关注状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowStateResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Follow]
+      operationId: unfollowUser
+      summary: 取消关注用户
+      description: |
+        关注主体固定为当前登录用户；即使资料未完成也仍允许清理已有关注关系。
+        从未关注、重复取消，或目标已隐藏、不可用时均幂等返回 200 未关注状态，不泄露目标当前状态。
+      x-implementation-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 当前未关注状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowStateResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/follows/organizations/{organizationId}:
+    parameters:
+      - $ref: "#/components/parameters/OrganizationId"
+    put:
+      tags: [Follow]
+      operationId: followOrganization
+      summary: 关注企业
+      description: |
+        关注主体固定为当前登录用户。新建关注要求当前用户具备 FOLLOW；资料未完成时返回 11201/409。
+        校验顺序为目标企业公开可见、重复关注幂等、FOLLOW 能力、新建关注：
+        目标企业不存在或不可用时返回 404；已存在的关系优先幂等返回 200。
+      x-error-precedence:
+        - TARGET_VISIBILITY_404
+        - EXISTING_RELATIONSHIP_IDEMPOTENCY
+        - PROFILE_INCOMPLETE_11201
+        - CREATE_FOLLOW
+      x-implementation-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 当前关注状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowStateResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Follow]
+      operationId: unfollowOrganization
+      summary: 取消关注企业
+      description: |
+        关注主体固定为当前登录用户；即使资料未完成也仍允许清理已有关注关系。
+        从未关注、重复取消，或目标已隐藏、不可用时均幂等返回 200 未关注状态，不泄露目标当前状态。
+      x-implementation-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 当前未关注状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowStateResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/{userId}/follow-state:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [Follow]
+      operationId: getUserFollowState
+      summary: 查询本人对指定用户的关注状态
+      x-implementation-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 当前关注状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowStateResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/organizations/{organizationId}/follow-state:
+    parameters:
+      - $ref: "#/components/parameters/OrganizationId"
+    get:
+      tags: [Follow]
+      operationId: getOrganizationFollowState
+      summary: 查询本人对指定企业的关注状态
+      x-implementation-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 当前关注状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowStateResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/following:
+    get:
+      tags: [Follow]
+      operationId: listMyFollowing
+      summary: 游标分页查询本人关注列表
+      description: |
+        可混合返回用户和企业。固定以 followedAt、followId 组成稳定游标；
+        支持按目标类型、名称关键字和关注时间顺序筛选。
+        已隐藏、停用或资料未完成的不可用目标从列表中排除且不返回旧资料，关系保留；目标恢复公开可用后可重新出现。
+      x-implementation-status: IMPLEMENTED
+      parameters:
+        - $ref: "#/components/parameters/FilterBoundCursor"
+        - $ref: "#/components/parameters/FollowLimit"
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/FollowTargetType"
+        - name: q
+          in: query
+          required: false
+          description: 目标昵称或企业名称包含匹配，服务端先去除首尾空白。
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+        - name: sort
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/FollowListSort"
+      responses:
+        "200":
+          description: 本人关注列表分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowingPageResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/followers:
+    get:
+      tags: [Follow]
+      operationId: listMyFollowers
+      summary: 游标分页查询本人粉丝列表
+      description: |
+        只允许当前登录用户查询本人的用户粉丝，不提供任意用户或企业的完整粉丝名单。
+        已隐藏、停用或资料未完成的不可用关注者从列表中排除且不返回旧资料，关系保留；恢复公开可用后可重新出现。
+      x-implementation-status: IMPLEMENTED
+      parameters:
+        - $ref: "#/components/parameters/FilterBoundCursor"
+        - $ref: "#/components/parameters/FollowLimit"
+        - name: q
+          in: query
+          required: false
+          description: 粉丝昵称包含匹配，服务端先去除首尾空白。
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+        - name: sort
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/FollowListSort"
+      responses:
+        "200":
+          description: 本人粉丝列表分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowerPageResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/posts:
+    post:
+      tags: [Post]
+      operationId: createMyPostDraft
+      summary: 创建个人动态草稿
+      description: |
+        要求当前用户具备 PUBLISH_PERSONAL_POST；资料未完成返回 11201/409。
+        只创建 DRAFT，不直接发布。标题、正文、图片或活动引用至少存在一项；默认可见范围为 PUBLIC。
+        POST 图片最多 5 张，只接受当前用户上传且已通过内容检查的 JPEG 或 PNG；
+        单文件不超过 10 MiB，总计不超过 50 MiB。活动引用只接受当前公开可读的
+        PUBLISHED、CANCELLED 或 ENDED 活动，不可用时返回 11906/409。
+        幂等结果从首次创建起固定保留 24 小时：同键同请求重放返回原草稿与 200，
+        同键不同请求返回 11901/409；原草稿已软删除时返回 11904/409，重放不延长窗口。
+      x-error-precedence:
+        - PROFILE_AND_CAPABILITY_AUTHORIZATION
+        - IDEMPOTENCY_REPLAY_OR_CONFLICT
+        - CONTENT_AND_REFERENCE_VALIDATION
+        - CREATE_DRAFT
+      x-implementation-status: IMPLEMENTED
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostDraftCreateRequest"
+      responses:
+        "200":
+          description: 24 小时内同键同请求的幂等重放结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedPostDetailResult"
+        "201":
+          description: 个人动态草稿已创建
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedPostDetailResult"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/organizations/{organizationId}/posts:
+    parameters:
+      - $ref: "#/components/parameters/OrganizationId"
+    post:
+      tags: [Post]
+      operationId: createOrganizationPostDraft
+      summary: 创建企业动态草稿
+      description: |
+        当前用户资料未完成时返回 11201/409；通过资料门槛后再校验企业写权限。
+        企业必须处于 DEV_ENABLED；当前用户必须具备 PUBLISH_ORGANIZATION_POST，且是当前有效且唯一的 OWNER。
+        草稿归企业主体，不归操作人个人；
+        只创建 DRAFT，不直接发布。字段、图片、活动引用和 24 小时幂等规则与个人草稿一致：
+        同键同请求返回原草稿与 200，同键不同请求返回 11901/409，原草稿已软删除返回 11904/409。
+      x-error-precedence:
+        - PROFILE_COMPLETENESS_11201
+        - ORGANIZATION_WRITE_AUTHORIZATION_404
+        - IDEMPOTENCY_REPLAY_OR_CONFLICT
+        - CONTENT_AND_REFERENCE_VALIDATION
+        - CREATE_DRAFT
+      x-implementation-status: IMPLEMENTED
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostDraftCreateRequest"
+      responses:
+        "200":
+          description: 24 小时内同键同请求的幂等重放结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedPostDetailResult"
+        "201":
+          description: 企业动态草稿已创建
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedPostDetailResult"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+    get:
+      tags: [Post]
+      operationId: listOrganizationPosts
+      summary: 游标分页查询企业动态
+      description: |
+        固定按 publishedAt DESC、postId DESC 排序。匿名只返回 PUBLISHED + PUBLIC；
+        携带登录令牌时，在读取时实时校验关注关系和企业 OWNER 权限后，可补充 FOLLOWERS_ONLY 或 PRIVATE。
+        企业不存在或企业不可用时统一返回 404；历史动态保留在数据库中，但不再公开分发。
+      x-implementation-status: IMPLEMENTED
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/FilterBoundCursor"
+        - $ref: "#/components/parameters/PostLimit"
+      responses:
+        "200":
+          description: 企业动态分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicPostPageResult"
+        "404":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/posts/{postId}:
+    parameters:
+      - $ref: "#/components/parameters/PostId"
+    put:
+      tags: [Post]
+      operationId: replaceMyPostDraft
+      summary: 完整替换个人动态草稿
+      description: |
+        要求当前用户具备 PUBLISH_PERSONAL_POST；只有当前用户的 DRAFT 可编辑。
+        必须提供当前 version，版本不一致返回 11903/409；资料未完成返回 11201/409。
+        保存时重新校验活动引用，只接受当前公开可读的 PUBLISHED、CANCELLED 或 ENDED 活动；
+        不可用时返回 11906/409。草稿保存事务绑定并激活新图片，旧的无引用图片进入清理流程。
+      x-error-precedence:
+        - RESOURCE_MANAGE_VISIBILITY_404
+        - PROFILE_AND_CAPABILITY_AUTHORIZATION
+        - VERSION_11903
+        - STATUS_11902
+        - CONTENT_AND_REFERENCE_VALIDATION
+        - REPLACE_DRAFT
+      x-implementation-status: IMPLEMENTED
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostDraftReplaceRequest"
+      responses:
+        "200":
+          description: 更新后的动态草稿
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedPostDetailResult"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/organizations/{organizationId}/posts/{postId}:
+    parameters:
+      - $ref: "#/components/parameters/OrganizationId"
+      - $ref: "#/components/parameters/PostId"
+    put:
+      tags: [Post]
+      operationId: replaceOrganizationPostDraft
+      summary: 完整替换企业动态草稿
+      description: |
+        当前用户资料未完成时返回 11201/409；通过资料门槛后再校验企业写权限。
+        企业必须处于 DEV_ENABLED；当前用户必须具备 PUBLISH_ORGANIZATION_POST，且是当前有效且唯一的 OWNER，
+        才可编辑该企业 DRAFT。版本不一致返回 11903/409；无管理权限统一返回 404。
+        活动引用只接受当前公开可读的 PUBLISHED、CANCELLED 或 ENDED 活动，不可用时返回 11906/409；
+        草稿保存事务绑定并激活新图片，旧的无引用图片进入清理流程。
+      x-error-precedence:
+        - RESOURCE_MANAGE_VISIBILITY_404
+        - PROFILE_COMPLETENESS_11201
+        - ORGANIZATION_WRITE_AUTHORIZATION_404
+        - VERSION_11903
+        - STATUS_11902
+        - CONTENT_AND_REFERENCE_VALIDATION
+        - REPLACE_DRAFT
+      x-implementation-status: IMPLEMENTED
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostDraftReplaceRequest"
+      responses:
+        "200":
+          description: 更新后的企业动态草稿
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedPostDetailResult"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/posts/{postId}/publication:
+    parameters:
+      - $ref: "#/components/parameters/PostId"
+    put:
+      tags: [Post]
+      operationId: publishPost
+      summary: 发布动态草稿
+      description: |
+        仅允许 DRAFT 转为 PUBLISHED：发布要求标题有效，且正文或图片至少存在一项；
+        重新校验资料完成度、活动引用和全部图片。已经 PUBLISHED 时幂等返回当前结果。
+        HIDDEN 是平台内容安全状态，作者不得自行恢复，调用本接口返回 11902/409；
+        HIDDEN 转回 PUBLISHED 仅允许未公开的内部平台审核或申诉流程执行，并保留原 publishedAt。
+        个人动态要求 PUBLISH_PERSONAL_POST；企业动态要求企业处于 DEV_ENABLED、当前用户具备
+        PUBLISH_ORGANIZATION_POST，且是当前有效且唯一的 OWNER；无管理权限统一返回 404。
+        判定时先确认当前资源管理权限；已经 PUBLISHED 时优先幂等返回，不因资料或企业能力后来变化而重复写入；
+        首次发布才重新校验写能力、内容、活动引用和图片。
+      x-error-precedence:
+        - RESOURCE_MANAGE_VISIBILITY_404
+        - PUBLISHED_IDEMPOTENCY
+        - WRITE_AUTHORIZATION
+        - STATUS_11902
+        - CONTENT_AND_REFERENCE_VALIDATION
+        - PUBLISH_POST
+      x-implementation-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 已发布动态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedPostDetailResult"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/posts/{postId}:
+    parameters:
+      - $ref: "#/components/parameters/PostId"
+    get:
+      tags: [Post]
+      operationId: getPost
+      summary: 获取动态详情
+      description: |
+        普通详情只返回 PUBLISHED；DRAFT、HIDDEN、DELETED 或不存在统一返回 404。
+        允许可选登录。PUBLIC 可匿名读取；FOLLOWERS_ONLY 在读取时实时检查当前关注关系，
+        个人作者本人或企业当前有效且唯一的 OWNER 也可读取自己主体的 FOLLOWERS_ONLY；
+        PRIVATE 个人动态只允许个人作者本人，企业动态只允许企业当前有效且唯一的 OWNER。
+        作者账号或企业不可用时，普通读取与公开分发统一返回 404；管理者查看历史须使用可管理动态接口。
+        其他无权读取场景统一返回 404。
+      x-implementation-status: IMPLEMENTED
+      security:
+        - {}
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 动态详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicPostResult"
+        "404":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Post]
+      operationId: deletePost
+      summary: 软删除本人可管理的动态
+      description: |
+        DRAFT、PUBLISHED 或 HIDDEN 均可转为 DELETED；重复删除按资源不可见返回 404。
+        个人动态只校验已认证登录的作者本人，不依赖资料完成度或 PUBLISH_PERSONAL_POST；
+        企业动态要求企业处于 DEV_ENABLED、
+        当前用户具备 PUBLISH_ORGANIZATION_POST，且是企业当前有效且唯一的 OWNER。
+      x-error-precedence:
+        - RESOURCE_MANAGE_VISIBILITY_404
+        - DELETED_404
+        - ORGANIZATION_WRITE_AUTHORIZATION_404
+        - DELETE_POST
+      x-implementation-status: IMPLEMENTED
+      responses:
+        "200":
+          $ref: "#/components/responses/VoidSuccess"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/managed-posts:
+    get:
+      tags: [Post]
+      operationId: listMyManagedPosts
+      summary: 游标分页查询本人可管理的动态
+      description: |
+        返回本人的个人动态，以及当前作为有效且唯一 OWNER 可管理的企业动态。
+        当前 OWNER 在企业变为 DEV_DISABLED 后仍可读取企业草稿、私密和隐藏历史，但不可写；
+        OWNER 关系失效后不再返回该企业的非公开动态。
+        固定按 updatedAt DESC、postId DESC 排序；不返回已删除动态。
+      x-implementation-status: IMPLEMENTED
+      parameters:
+        - $ref: "#/components/parameters/FilterBoundCursor"
+        - $ref: "#/components/parameters/PostLimit"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ManagedPostStatus"
+        - name: authorType
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PostAuthorType"
+      responses:
+        "200":
+          description: 可管理动态分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedPostPageResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/me/managed-posts/{postId}:
+    parameters:
+      - $ref: "#/components/parameters/PostId"
+    get:
+      tags: [Post]
+      operationId: getMyManagedPost
+      summary: 获取本人可管理的动态详情
+      description: |
+        个人作者或企业当前有效且唯一的 OWNER 可读取草稿、私密和隐藏内容；无权限统一返回 404。
+        当前 OWNER 在企业变为 DEV_DISABLED 后仍可读取历史，但不可写；OWNER 关系失效后不再可读。
+      x-implementation-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 可管理动态详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedPostDetailResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/posts:
+    get:
+      tags: [Post]
+      operationId: listPublicPosts
+      summary: 游标分页查询公开动态
+      description: |
+        只返回 PUBLISHED + PUBLIC，且用户或企业作者当前公开可用的动态。
+        作者不可用时历史动态仍保留在数据库中但不公开分发；固定按 publishedAt DESC、postId DESC 排序，不包含推荐排序。
+      x-implementation-status: IMPLEMENTED
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/FilterBoundCursor"
+        - $ref: "#/components/parameters/PostLimit"
+      responses:
+        "200":
+          description: 公开动态分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicPostPageResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/users/{userId}/posts:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [Post]
+      operationId: listUserPosts
+      summary: 游标分页查询用户动态
+      description: |
+        固定按 publishedAt DESC、postId DESC 排序。匿名只返回 PUBLISHED + PUBLIC；
+        携带登录令牌时实时校验关注关系或作者本人权限后，可补充 FOLLOWERS_ONLY 或 PRIVATE。
+        作者账号不可用或资料未完成时统一返回 404；历史动态保留在数据库中但不公开分发。
+      x-implementation-status: IMPLEMENTED
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/FilterBoundCursor"
+        - $ref: "#/components/parameters/PostLimit"
+      responses:
+        "200":
+          description: 用户动态分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicPostPageResult"
+        "404":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/feed/following:
+    get:
+      tags: [Feed]
+      operationId: listFollowingFeed
+      summary: 游标分页查询关注流
+      description: |
+        返回当前用户所关注用户和企业的 PUBLISHED + PUBLIC/FOLLOWERS_ONLY 动态；
+        查询时实时校验关注关系和作者公开可用状态；作者隐藏、停用或企业不可用时保留关注关系但不分发内容。
+        固定按 publishedAt DESC、postId DESC 排序。
+        不包含 PRIVATE、推荐算法、物化时间线或异步扇出。
+      x-implementation-status: IMPLEMENTED
+      parameters:
+        - $ref: "#/components/parameters/FilterBoundCursor"
+        - $ref: "#/components/parameters/PostLimit"
+      responses:
+        "200":
+          description: 关注流分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicPostPageResult"
+        "401":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/feed/recommended:
+    get:
+      tags: [Feed]
+      operationId: listRecommendedFeed
+      summary: 游标分页查询推荐流
+      description: |
+        允许匿名访问。匿名用户、没有有效兴趣标签的登录用户和推荐依赖不可用时，
+        返回公开动态的 publishedAt DESC、postId DESC 时间倒序结果。
+        已登录且有有效兴趣标签时，使用 Ollama bge-m3 生成查询向量，
+        从最近 90 天的公开动态中由 Qdrant 粗排，再由 Java 按语义、新鲜度、关注作者和同城规则精排。
+        推荐结果只允许 PUBLISHED + PUBLIC 动态，绝不返回 FOLLOWERS_ONLY、PRIVATE、DRAFT、HIDDEN 或 DELETED；
+        MySQL 在返回前重新校验动态、作者和公开可见性。Redis 快照保留 10 分钟，
+        推荐游标独立绑定用户、快照、模式和首请求 limit；快照过期或游标无效返回 10001/400。
+        本接口不改变 GET /api/v1/feed/following 的实时关注流语义。
+      x-implementation-status: IMPLEMENTED
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RecommendedCursor"
+        - $ref: "#/components/parameters/RecommendedLimit"
+      responses:
+        "200":
+          description: 推荐动态分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicPostPageResult"
+        "400":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/account/phone-binding:
+    get:
+      tags: [Account]
+      operationId: getPhoneBinding
+      summary: 获取当前手机号绑定状态
+      description: 只返回脱敏手机号；手机号明文不会写入响应或日志。
+      responses:
+        "200":
+          description: 手机号绑定状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhoneBindingResult"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      tags: [Account]
+      operationId: bindOrReplacePhone
+      summary: 使用微信手机号凭证绑定或换绑手机号
+      description: |
+        绑定或换绑成功后立即重新计算 profileCompleted；同一手机号不能同时绑定多个用户。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneBindingRequest"
+      responses:
+        "200":
+          description: 绑定后的状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhoneBindingResult"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Account]
+      operationId: unbindPhone
+      summary: 解绑手机号
+      description: |
+        解绑成功后立即重新计算 profileCompleted；由于手机号是必填完成项，解绑后资料变为未完成。
+      responses:
+        "200":
+          $ref: "#/components/responses/VoidSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/account/sessions:
+    get:
+      tags: [Account]
+      operationId: listSessions
+      summary: 查询本人有效登录会话
+      responses:
+        "200":
+          description: 登录会话列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionItemsResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/account/sessions/{sessionId}:
+    delete:
+      tags: [Account]
+      operationId: revokeSession
+      summary: 撤销本人的其他登录会话
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          $ref: "#/components/responses/VoidSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/account/security-events:
+    get:
+      tags: [Account]
+      operationId: listSecurityEvents
+      summary: 游标分页查询安全事件
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: 安全事件分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityEventPageResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/account/deactivation:
+    post:
+      tags: [Account]
+      operationId: requestDeactivation
+      summary: 申请注销账号
+      description: |
+        首次申请返回 201；重复读取现有申请返回 200。
+        存在以下任一业务责任时拒绝注销申请并返回 11501/409：
+        用户存在 ACTIVE 报名，且关联活动尚未有效结束；
+        用户是尚未有效结束的个人活动发起者；
+        用户是尚未有效结束的企业活动所属企业当前有效且唯一的 OWNER。
+        正常结束后保留的 ACTIVE 报名历史不阻断注销；
+        DRAFT、CANCELLED、ENDED 或 endsAt 已到达的活动也不阻断注销。
+        本接口只创建注销申请，以下 M4 规则在实际注销执行时生效：
+        物理删除以该用户为关注者或被关注者的用户关注关系，以及该用户发起的企业关注关系；
+        个人 DRAFT 动态转为 DELETED，个人 PUBLISHED 动态转为 HIDDEN 并记录 ACCOUNT_DEACTIVATED，已 HIDDEN 保持不变；
+        不删除企业动态，其受限操作审计按既有 M1 匿名化规则保留，动态文件访问随最终可见状态收紧。
+      x-m2-extension-status: IMPLEMENTED
+      x-m3-extension-status: IMPLEMENTED
+      x-m4-extension-status: IMPLEMENTED
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeactivationRequest"
+      responses:
+        "200":
+          description: 已存在的注销申请
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeactivationResult"
+        "201":
+          description: 已创建注销申请
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeactivationResult"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+    get:
+      tags: [Account]
+      operationId: getDeactivation
+      summary: 查询当前注销申请
+      responses:
+        "200":
+          description: 没有申请时 data 为 null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NullableDeactivationResult"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Account]
+      operationId: cancelDeactivation
+      summary: 取消当前注销申请
+      responses:
+        "200":
+          $ref: "#/components/responses/VoidSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/account/data-exports:
+    post:
+      tags: [Account]
+      operationId: requestDataExport
+      summary: 创建本人数据导出任务
+      description: |
+        M4 导出包包含当前用户的关注关系、粉丝关系和本人创作的动态；
+        不包含他人私密内容，也不因本人曾操作企业而导出企业动态或企业动态图片；
+        动态媒体按业务归属而不是文件上传者过滤，受限操作审计仍按既有策略处理。
+      x-m4-extension-status: IMPLEMENTED
+      responses:
+        "201":
+          description: 导出任务已创建
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataExportResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/account/data-exports/{requestId}:
+    get:
+      tags: [Account]
+      operationId: getDataExport
+      summary: 查询数据导出任务
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: 导出任务状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataExportResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/account/data-exports/{requestId}/download-url:
+    get:
+      tags: [Account]
+      operationId: getDataExportDownloadUrl
+      summary: 获取已完成导出任务的临时下载地址
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: 临时下载地址
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadUrlResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/files/images:
+    post:
+      tags: [File]
+      operationId: uploadImage
+      summary: 按用途上传临时图片
+      description: |
+        purpose 必填，可选 AVATAR、ACTIVITY、ACTIVITY_CONTACT_QR 或 POST。
+        后端按用途保存并校验文件，活动封面和媒体仅接受 ACTIVITY 文件，动态媒体仅接受 POST 文件，
+        组织人微信二维码使用私有用途。POST 图片只允许 JPEG 或 PNG，单文件最大 10 MiB。
+      x-m2-extension-status: IMPLEMENTED
+      x-m4-extension-status: IMPLEMENTED
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, purpose]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: JPEG 或 PNG，最大 10MB
+                purpose:
+                  $ref: "#/components/schemas/FilePurpose"
+      responses:
+        "201":
+          description: 临时图片已创建
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/files/{fileId}:
+    parameters:
+      - $ref: "#/components/parameters/FileId"
+    get:
+      tags: [File]
+      operationId: getFile
+      summary: 获取本人上传文件的元数据
+      x-m2-extension-status: IMPLEMENTED
+      responses:
+        "200":
+          description: 文件元数据
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileResult"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [File]
+      operationId: deleteTemporaryFile
+      summary: 删除本人尚未激活的临时文件
+      responses:
+        "200":
+          $ref: "#/components/responses/VoidSuccess"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/files/{fileId}/content:
+    get:
+      tags: [File]
+      operationId: getFileContent
+      summary: 读取文件内容
+      description: |
+        匿名仅可读取 ACTIVE、PUBLIC、PASSED 的公开文件。
+        ACTIVITY 文件还必须至少关联一个 PUBLISHED、CANCELLED 或 ENDED 活动；
+        仅关联 DRAFT、HIDDEN 活动或未被活动引用时，匿名读取按 404 处理。
+        POST 文件必须关联当前可读取的动态：PUBLISHED + PUBLIC 允许匿名读取；
+        PUBLISHED + FOLLOWERS_ONLY 在读取时实时检查当前关注关系，个人作者本人或企业当前有效且唯一的 OWNER
+        也可读取自己主体的图片；PRIVATE 只允许个人作者本人或企业当前有效且唯一的 OWNER。
+        当前有管理权限的作者还可预览 DRAFT、HIDDEN 动态图片；DELETED 或未被动态引用时按 404 处理。
+        所有 POST 图片响应统一使用 no-store，避免动态隐藏或删除后稳定 URL 的缓存继续返回旧内容。
+        携带 Bearer 令牌时，上传者还可预览尚有效的 TEMPORARY 文件。
+        无权访问、已删除、检查未通过或已过期统一按 404 处理。
+        ACTIVITY 文件匿名读取使用 no-store；除 POST 外的其他公开文件使用 public，
+        上传者预览使用 private。
+      x-m2-extension-status: IMPLEMENTED
+      x-m4-extension-status: IMPLEMENTED
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+      responses:
+        "200":
+          description: 文件二进制内容
+          headers:
+            Cache-Control:
+              description: 所有 POST 文件内容使用 no-store；ACTIVITY 匿名内容使用 no-store；其他公开文件使用 public，上传者预览使用 private。
+              schema:
+                type: string
+              example: no-store
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Error"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    AgreementId:
+      name: agreementId
+      in: path
+      required: true
+      description: 十进制大编号；JavaScript 客户端必须按字符串保存。
+      schema:
+        $ref: "#/components/schemas/Id"
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    RequestId:
+      name: requestId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    FileId:
+      name: fileId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    OrganizationId:
+      name: organizationId
+      in: path
+      required: true
+      description: 企业业务编号；JavaScript 客户端必须按字符串保存。
+      schema:
+        $ref: "#/components/schemas/Id"
+    ActivityId:
+      name: activityId
+      in: path
+      required: true
+      description: 活动业务编号；JavaScript 客户端必须按字符串保存。
+      schema:
+        $ref: "#/components/schemas/Id"
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: 用户业务编号；JavaScript 客户端必须按字符串保存。
+      schema:
+        $ref: "#/components/schemas/Id"
+    PostId:
+      name: postId
+      in: path
+      required: true
+      description: 动态业务编号；JavaScript 客户端必须按字符串保存。
+      schema:
+        $ref: "#/components/schemas/Id"
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: 后端生成的不透明分页游标，客户端不得解析或改写。
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 512
+    FilterBoundCursor:
+      name: cursor
+      in: query
+      required: false
+      description: |
+        M4 列表使用的后端不透明分页游标，客户端不得解析或改写。游标与产生它的筛选条件和排序方式绑定；
+        改变筛选或排序后复用旧游标属于无效请求，返回 HTTP 400。
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 512
+    RecommendedCursor:
+      name: cursor
+      in: query
+      required: false
+      description: |
+        推荐流专用的不透明游标，客户端不得解析或改写。游标绑定当前用户、推荐模式、
+        Redis 快照和首请求 limit；快照有效期为 10 分钟。游标被篡改或快照过期返回 10001/400，
+        游标由服务端使用 HMAC-SHA256 签名，客户端应从第一页重新请求；不得与公开动态、
+        关注流或其他列表游标混用。
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 512
+    ActivityLimit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+    ParticipationLimit:
+      name: limit
+      in: query
+      required: false
+      description: 单页返回数量。
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+    FollowLimit:
+      name: limit
+      in: query
+      required: false
+      description: 单页返回数量。
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+    PostLimit:
+      name: limit
+      in: query
+      required: false
+      description: 单页返回数量。
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+    RecommendedLimit:
+      name: limit
+      in: query
+      required: false
+      description: 推荐流单页返回数量。
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 20
+        default: 20
+    PublicActivityStatus:
+      name: status
+      in: query
+      required: false
+      description: 公开列表默认只查询已发布活动。
+      schema:
+        $ref: "#/components/schemas/PublicActivityStatus"
+    ManagedActivityStatus:
+      name: status
+      in: query
+      required: false
+      description: 不传时查询当前账号可管理的全部状态。
+      schema:
+        $ref: "#/components/schemas/ActivityStatus"
+    ActivityOwnerTypeFilter:
+      name: ownerType
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/ActivityOwnerType"
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        创建命令的幂等键。结果在当前操作人、发布主体和键值范围内保留 24 小时。
+        重放不延长窗口；活动或动态草稿删除也不缩短原 24 小时窗口。
+        窗口到期后由请求事务先同步释放过期占用，再允许同键重新创建；后台清理延迟不得延长窗口。
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+        pattern: "^[A-Za-z0-9._:-]+$"
+  responses:
+    VoidSuccess:
+      description: 操作成功
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/VoidResult"
+    Error:
+      description: |
+        统一错误响应。常见业务码：
+        10000-10999 通用错误；11001-11005 登录会话；
+        11101-11103 手机与设备；11201-11203 资料；
+        11301-11302 协议；11401-11404 文件；11501-11503 账号数据；
+        11601 幂等键冲突；11602 活动状态冲突；11603 乐观锁版本冲突；11604 活动容量冲突；
+        11605 幂等请求对应的活动草稿已删除。
+        11701 报名尚未开始；11702 报名已经截止；11703 活动名额已满；
+        11704 活动发起者不能报名自己的活动；11705 活动已经开始；
+        11706 活动已取消；11707 活动已结束；11708 当前参与记录不可由发起者移除；
+        11709 已被活动发起者移除，不能再次报名；11710 不符合活动报名性别限制。
+        11801 不能关注自己。
+        11901 动态创建幂等键冲突；11902 动态状态冲突；11903 动态版本冲突；
+        11904 幂等请求对应的动态草稿已删除；11905 动态内容未通过安全检查；
+        11906 引用活动不可用。
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResult"
+    EmailAlreadyUsed:
+      description: 邮箱已被其他账号使用，对应业务码 11203 和 HTTP 409。
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResult"
+          example:
+            code: 11203
+            message: 邮箱已被使用
+            data: null
+            requestId: "019fa7f8b1aa7258"
+            timestamp: "2026-08-04T08:00:00Z"
+  schemas:
+    Id:
+      type: string
+      minLength: 1
+      pattern: "^[1-9][0-9]*$"
+      example: "1900000000000000201"
+    Instant:
+      type: string
+      format: date-time
+      example: "2026-07-29T08:00:00Z"
+    ResultMeta:
+      type: object
+      required: [code, message, requestId, timestamp]
+      properties:
+        code:
+          type: integer
+          enum: [0]
+        message:
+          type: string
+          example: 成功
+        requestId:
+          type: string
+          example: 019fa7f8b1aa7253
+        timestamp:
+          $ref: "#/components/schemas/Instant"
+    ErrorResult:
+      type: object
+      required: [code, message, data, requestId, timestamp]
+      properties:
+        code:
+          type: integer
+          minimum: 1
+          example: 10001
+        message:
+          type: string
+          example: 参数校验失败
+        data:
+          nullable: true
+          description: 参数校验失败时可能为 FieldValidationError 数组。
+        requestId:
+          type: string
+        timestamp:
+          $ref: "#/components/schemas/Instant"
+    VoidResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              nullable: true
+              example: null
+
+    PingResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [UP]
+    PingResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/PingResponse"
+
+    WechatLoginRequest:
+      type: object
+      required:
+        - wechatCode
+        - installationId
+        - deviceName
+        - platform
+        - appVersion
+      properties:
+        wechatCode:
+          type: string
+          minLength: 1
+          maxLength: 128
+        installationId:
+          type: string
+          minLength: 16
+          maxLength: 128
+        deviceName:
+          type: string
+          minLength: 1
+          maxLength: 64
+        platform:
+          type: string
+          minLength: 1
+          enum: [WECHAT_MINIPROGRAM]
+        osVersion:
+          type: string
+          maxLength: 32
+          nullable: true
+        appVersion:
+          type: string
+          minLength: 1
+          maxLength: 32
+        regionCode:
+          type: string
+          maxLength: 32
+          nullable: true
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken, installationId]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          maxLength: 2048
+        installationId:
+          type: string
+          minLength: 16
+          maxLength: 128
+    LoginResponse:
+      type: object
+      required:
+        - userId
+        - accountStatus
+        - sessionId
+        - accessToken
+        - accessTokenExpiresAt
+        - refreshToken
+        - refreshTokenExpiresAt
+        - profileCompleted
+        - pendingAgreementIds
+      properties:
+        userId:
+          $ref: "#/components/schemas/Id"
+        accountStatus:
+          type: string
+          example: ACTIVE
+        sessionId:
+          $ref: "#/components/schemas/Id"
+        accessToken:
+          type: string
+          writeOnly: true
+        accessTokenExpiresAt:
+          $ref: "#/components/schemas/Instant"
+        refreshToken:
+          type: string
+          writeOnly: true
+        refreshTokenExpiresAt:
+          $ref: "#/components/schemas/Instant"
+        profileCompleted:
+          type: boolean
+        pendingAgreementIds:
+          type: array
+          items:
+            $ref: "#/components/schemas/Id"
+    LoginResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/LoginResponse"
+
+    AgreementType:
+      type: string
+      enum: [USER_AGREEMENT, PRIVACY_POLICY]
+    AgreementSummary:
+      type: object
+      required:
+        - agreementId
+        - type
+        - versionCode
+        - title
+        - requiresReconsent
+        - effectiveAt
+        - agreed
+      properties:
+        agreementId:
+          $ref: "#/components/schemas/Id"
+        type:
+          $ref: "#/components/schemas/AgreementType"
+        versionCode:
+          type: string
+        title:
+          type: string
+        requiresReconsent:
+          type: boolean
+        effectiveAt:
+          $ref: "#/components/schemas/Instant"
+        agreed:
+          type: boolean
+          nullable: true
+          description: 匿名访问时为 null。
+    AgreementDetail:
+      allOf:
+        - $ref: "#/components/schemas/AgreementSummary"
+        - type: object
+          required: [content, contentHash]
+          properties:
+            content:
+              type: string
+            contentHash:
+              type: string
+              pattern: "^[a-fA-F0-9]{64}$"
+    AgreementConsent:
+      type: object
+      required: [agreementId, agreedAt]
+      properties:
+        agreementId:
+          $ref: "#/components/schemas/Id"
+        agreedAt:
+          $ref: "#/components/schemas/Instant"
+    AgreementItemsResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/AgreementSummary"
+    AgreementDetailResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/AgreementDetail"
+    AgreementConsentResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/AgreementConsent"
+
+    UpdateProfileRequest:
+      type: object
+      required: [birthDate, gender, provinceCode, cityCode, districtCode]
+      properties:
+        nickname:
+          type: string
+          minLength: 2
+          maxLength: 20
+          nullable: true
+          description: 设计稿中的“姓名”沿用此字段；已有昵称时可省略，首次设置必须提供，资料完成时不能为空。
+        birthDate:
+          type: string
+          format: date
+        gender:
+          type: string
+          minLength: 1
+          enum: [MALE, FEMALE, OTHER_OR_UNDISCLOSED]
+        provinceCode:
+          type: string
+          minLength: 1
+        cityCode:
+          type: string
+          minLength: 1
+        districtCode:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          nullable: true
+          description: 选填且填写后全局唯一；省略、null 或空字符串表示清空，非空时服务端去除首尾空白并转为小写后保存和判重。
+        bio:
+          type: string
+          maxLength: 1000
+          nullable: true
+          description: 选填，不参与资料完成判定。
+      example:
+        nickname: 小艾
+        birthDate: "2000-01-02"
+        gender: FEMALE
+        provinceCode: "44"
+        cityCode: "4401"
+        districtCode: "440106"
+        email: null
+        bio: 周末喜欢徒步和看展
+    UpdateAvatarRequest:
+      type: object
+      required: [fileId]
+      properties:
+        fileId:
+          $ref: "#/components/schemas/Id"
+      example:
+        fileId: "1900000000000000301"
+    UpdateNicknameRequest:
+      type: object
+      required: [nickname]
+      properties:
+        nickname:
+          type: string
+          minLength: 2
+          maxLength: 20
+      example:
+        nickname: 小艾
+    UpdateInterestsRequest:
+      type: object
+      required: [interestTagIds]
+      properties:
+        interestTagIds:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/Id"
+      example:
+        interestTagIds:
+          - "1900000000000001001"
+          - "1900000000000001002"
+    AvatarView:
+      type: object
+      required: [fileId, url]
+      properties:
+        fileId:
+          $ref: "#/components/schemas/Id"
+        url:
+          type: string
+      example:
+        fileId: "1900000000000000301"
+        url: /api/v1/files/1900000000000000301/content
+    RegionView:
+      type: object
+      required:
+        - provinceCode
+        - provinceName
+        - cityCode
+        - cityName
+        - districtCode
+        - districtName
+      properties:
+        provinceCode:
+          type: string
+        provinceName:
+          type: string
+        cityCode:
+          type: string
+        cityName:
+          type: string
+        districtCode:
+          type: string
+        districtName:
+          type: string
+    ProfilePhoneBindingView:
+      type: object
+      required: [bound]
+      properties:
+        bound:
+          type: boolean
+        maskedPhone:
+          type: string
+          nullable: true
+          description: 仅返回脱敏值；未绑定时为 null。
+      example:
+        bound: true
+        maskedPhone: "138****8000"
+    InterestTag:
+      type: object
+      required: [interestTagId, code, name, sortOrder]
+      properties:
+        interestTagId:
+          $ref: "#/components/schemas/Id"
+        code:
+          type: string
+        name:
+          type: string
+        sortOrder:
+          type: integer
+      example:
+        interestTagId: "1900000000000001001"
+        code: OUTDOOR
+        name: 户外
+        sortOrder: 10
+    MyProfile:
+      type: object
+      required:
+        - userId
+        - nickname
+        - avatar
+        - birthDate
+        - gender
+        - region
+        - email
+        - bio
+        - interestTags
+        - phoneBinding
+        - profileCompleted
+        - completedAt
+        - nextNicknameChangeAt
+      properties:
+        userId:
+          $ref: "#/components/schemas/Id"
+        nickname:
+          type: string
+          minLength: 2
+          maxLength: 20
+          nullable: true
+          description: 设计稿中的“姓名”。
+        avatar:
+          nullable: true
+          description: 选填，不参与资料完成判定。
+          allOf:
+            - $ref: "#/components/schemas/AvatarView"
+        birthDate:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          type: string
+          enum: [MALE, FEMALE, OTHER_OR_UNDISCLOSED]
+          nullable: true
+        region:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/RegionView"
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          nullable: true
+          description: 仅向当前登录用户本人完整回显；未填写时为 null。
+        bio:
+          type: string
+          nullable: true
+          description: 选填，不参与资料完成判定。
+        interestTags:
+          type: array
+          items:
+            $ref: "#/components/schemas/InterestTag"
+        phoneBinding:
+          $ref: "#/components/schemas/ProfilePhoneBindingView"
+        profileCompleted:
+          type: boolean
+          description: 姓名、生日、地址、性别、有效手机号和至少一个有效兴趣标签均齐全时为 true；邮箱、头像和简介不参与判定。
+        completedAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        nextNicknameChangeAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+      example:
+        userId: "1900000000000000201"
+        nickname: 小艾
+        avatar: null
+        birthDate: "2000-01-02"
+        gender: FEMALE
+        region:
+          provinceCode: "44"
+          provinceName: 广东省
+          cityCode: "4401"
+          cityName: 广州市
+          districtCode: "440106"
+          districtName: 天河区
+        email: xiaoyi@example.com
+        bio: 周末喜欢徒步和看展
+        interestTags:
+          - interestTagId: "1900000000000001001"
+            code: OUTDOOR
+            name: 户外
+            sortOrder: 10
+        phoneBinding:
+          bound: true
+          maskedPhone: "138****8000"
+        profileCompleted: true
+        completedAt: "2026-08-04T08:00:00Z"
+        nextNicknameChangeAt: null
+    MyProfileResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/MyProfile"
+    UserCapability:
+      type: string
+      description: 当前用户可执行的后端能力；企业能力是在个人账号上叠加，不是独立登录身份。
+      enum:
+        - PUBLIC_READ
+        - FOLLOW
+        - PARTICIPATE
+        - PUBLISH_PERSONAL_ACTIVITY
+        - PUBLISH_PERSONAL_POST
+        - PUBLISH_ORGANIZATION_ACTIVITY
+        - PUBLISH_ORGANIZATION_POST
+        - MANAGE_ORGANIZATION
+    UserCapabilities:
+      type: object
+      required: [profileCompleted, capabilities]
+      properties:
+        profileCompleted:
+          type: boolean
+        capabilities:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/UserCapability"
+    UserCapabilitiesResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/UserCapabilities"
+    OrganizationRole:
+      type: string
+      enum: [OWNER]
+    MyOrganizationSummary:
+      type: object
+      required: [organizationId, name, avatar, role]
+      properties:
+        organizationId:
+          $ref: "#/components/schemas/Id"
+        name:
+          type: string
+          maxLength: 256
+        avatar:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AvatarView"
+        role:
+          $ref: "#/components/schemas/OrganizationRole"
+    MyOrganizationItems:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 1
+          items:
+            $ref: "#/components/schemas/MyOrganizationSummary"
+    MyOrganizationItemsResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/MyOrganizationItems"
+    ActivityOwnerType:
+      type: string
+      enum: [USER, ORGANIZATION]
+    ActivityStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED, CANCELLED, ENDED, HIDDEN]
+    PublicActivityStatus:
+      type: string
+      enum: [PUBLISHED, CANCELLED, ENDED]
+      default: PUBLISHED
+    ActivityCategory:
+      type: string
+      enum:
+        - HIKING
+        - CAMPING
+        - MOUNTAINEERING
+        - RUNNING
+        - CYCLING
+        - FITNESS
+        - BALL_SPORTS
+        - WATER_SPORTS
+        - TRAVEL
+        - FOOD
+        - MUSIC
+        - MOVIE
+        - READING
+        - PHOTOGRAPHY
+        - BOARD_GAMES
+        - GAMING
+        - PETS
+        - PARENT_CHILD
+        - VOLUNTEERING
+        - OTHER
+      description: 活动单选主分类；后续可以追加值，已有值原则上不改名或删除。
+    ActivityRegionCode:
+      type: string
+      minLength: 6
+      maxLength: 9
+      pattern: "^[0-9]{6}([0-9]{3})?$"
+      description: |
+        编码来源为 AreaCity-JsSpider-StatsGov 2025.251231.260403 发布快照，使用项目
+        规范化后的第三级节点原始 id。活动 regionCode 与个人资料 districtCode 使用同一份
+        内置快照；后端仍须校验该编码对应实际区县级节点。
+    ActivityPlaceName:
+      type: string
+      maxLength: 100
+      nullable: true
+      description: 集合地点名称；草稿允许为空，新活动发布时不得为空。历史已发布活动可能返回 null，修改后再次保存时必须补齐。
+    ActivityCoordinateSystem:
+      type: string
+      enum: [GCJ-02]
+      nullable: true
+      description: 有坐标时固定返回或接受 GCJ-02；请求有坐标但省略时服务端默认 GCJ-02，无坐标时必须为 null。
+    ActivityTopics:
+      type: array
+      maxItems: 5
+      default: []
+      description: 活动自由文本话题；每项去除首尾空白后按忽略大小写去重，保留首次展示文本和请求顺序。
+      items:
+        type: string
+        minLength: 1
+        maxLength: 20
+    ActivityLatitude:
+      type: number
+      format: double
+      minimum: -90
+      maximum: 90
+      multipleOf: 0.0000001
+      x-coordinate-reference-system: GCJ-02
+      description: GCJ-02（国测局坐标系）的集合地点纬度，最多 7 位小数。
+    ActivityLongitude:
+      type: number
+      format: double
+      minimum: -180
+      maximum: 180
+      multipleOf: 0.0000001
+      x-coordinate-reference-system: GCJ-02
+      description: GCJ-02（国测局坐标系）的集合地点经度，最多 7 位小数。
+    ActivityRegistrationStatus:
+      type: string
+      enum: [NOT_STARTED, OPEN, FULL, CLOSED, CANCELLED, ENDED]
+      description: 根据活动状态、报名时间和名额派生的只读报名窗口状态；HIDDEN 活动固定返回 CLOSED，表示当前不可报名。
+    ParticipationStatus:
+      type: string
+      enum: [ACTIVE, CANCELLED, TERMINATED]
+      description: |
+        ACTIVE 表示有效、未取消且未终止的报名；活动正常结束后仍保持 ACTIVE。
+        CANCELLED 表示用户主动取消；TERMINATED 表示活动取消或被发起者移除。
+    ParticipationTerminationReason:
+      type: string
+      enum: [ACTIVITY_CANCELLED, REMOVED_BY_OWNER]
+      description: TERMINATED 的固定终止原因；其他参与状态返回 null。
+    ActivityFeeType:
+      type: string
+      enum: [FREE]
+      description: 当前版本仅支持免费活动；refundPolicy 字段必须为 null，不启用支付和退款逻辑。
+    ActivityRegistrationGender:
+      type: string
+      enum: [UNLIMITED, MALE, FEMALE]
+      description: 报名者性别限制；UNLIMITED 表示不限，MALE 表示仅男，FEMALE 表示仅女。
+    FilePurpose:
+      type: string
+      enum: [AVATAR, ACTIVITY, ACTIVITY_CONTACT_QR, POST]
+
+    FollowTargetType:
+      type: string
+      enum: [USER, ORGANIZATION]
+    FollowListSort:
+      type: string
+      enum: [RECENT, EARLIEST]
+      default: RECENT
+    PostAuthorType:
+      type: string
+      enum: [USER, ORGANIZATION]
+    PostStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED, DELETED, HIDDEN]
+    ManagedPostStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED, HIDDEN]
+      description: 管理列表不返回已软删除动态。
+    PostVisibility:
+      type: string
+      enum: [PUBLIC, FOLLOWERS_ONLY, PRIVATE]
+      default: PUBLIC
+      description: |
+        PUBLIC 允许所有人读取；FOLLOWERS_ONLY 在读取时实时检查当前关注关系，个人作者本人或
+        企业当前有效且唯一的 OWNER 也可读取自己主体的动态；
+        PRIVATE 个人动态只允许作者本人，企业动态只允许当前有效且唯一的 OWNER。
+
+    PublicUserProfile:
+      type: object
+      required:
+        - userId
+        - nickname
+        - avatar
+        - bio
+        - interestTags
+        - followingCount
+        - followerCount
+      properties:
+        userId:
+          $ref: "#/components/schemas/Id"
+        nickname:
+          type: string
+          minLength: 2
+          maxLength: 20
+        avatar:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PublicImageView"
+        bio:
+          type: string
+          maxLength: 1000
+          nullable: true
+        interestTags:
+          type: array
+          items:
+            $ref: "#/components/schemas/InterestTag"
+        followingCount:
+          type: integer
+          format: int64
+          minimum: 0
+        followerCount:
+          type: integer
+          format: int64
+          minimum: 0
+    PublicUserProfileResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/PublicUserProfile"
+
+    FollowState:
+      type: object
+      required: [following, followedAt]
+      properties:
+        following:
+          type: boolean
+        followedAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+    FollowStateResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/FollowState"
+
+    FollowTargetSummary:
+      type: object
+      required: [followId, targetType, targetId, displayName, avatar, followedAt]
+      properties:
+        followId:
+          $ref: "#/components/schemas/Id"
+        targetType:
+          $ref: "#/components/schemas/FollowTargetType"
+        targetId:
+          $ref: "#/components/schemas/Id"
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 256
+        avatar:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PublicImageView"
+        followedAt:
+          $ref: "#/components/schemas/Instant"
+    FollowerSummary:
+      type: object
+      required: [followId, userId, nickname, avatar, followedAt]
+      properties:
+        followId:
+          $ref: "#/components/schemas/Id"
+        userId:
+          $ref: "#/components/schemas/Id"
+        nickname:
+          type: string
+          minLength: 2
+          maxLength: 20
+        avatar:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PublicImageView"
+        followedAt:
+          $ref: "#/components/schemas/Instant"
+    FollowingPage:
+      type: object
+      required: [items, nextCursor, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FollowTargetSummary"
+        nextCursor:
+          type: string
+          nullable: true
+        hasMore:
+          type: boolean
+    FollowerPage:
+      type: object
+      required: [items, nextCursor, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FollowerSummary"
+        nextCursor:
+          type: string
+          nullable: true
+        hasMore:
+          type: boolean
+    FollowingPageResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/FollowingPage"
+    FollowerPageResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/FollowerPage"
+
+    PostDraftCreateRequest:
+      type: object
+      additionalProperties: false
+      description: |
+        只保存 DRAFT。标题、正文、图片或活动引用至少存在一项；空白字符串按无内容处理。
+        本期不接收 mentions、topicIds、location 或 declaration。
+      properties:
+        title:
+          type: string
+          maxLength: 20
+          nullable: true
+        content:
+          type: string
+          maxLength: 5000
+          nullable: true
+        visibility:
+          $ref: "#/components/schemas/PostVisibility"
+        activityId:
+          description: 只接受当前公开可读的 PUBLISHED、CANCELLED 或 ENDED 活动；不可用时返回 11906/409。
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Id"
+        mediaFileIds:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          default: []
+          items:
+            $ref: "#/components/schemas/Id"
+    PostDraftReplaceRequest:
+      type: object
+      additionalProperties: false
+      required: [version, visibility]
+      description: 完整替换 DRAFT；标题、正文、图片或活动引用至少存在一项。
+      properties:
+        version:
+          type: integer
+          minimum: 0
+        title:
+          type: string
+          maxLength: 20
+          nullable: true
+        content:
+          type: string
+          maxLength: 5000
+          nullable: true
+        visibility:
+          $ref: "#/components/schemas/PostVisibility"
+        activityId:
+          description: 只接受当前公开可读的 PUBLISHED、CANCELLED 或 ENDED 活动；不可用时返回 11906/409。
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Id"
+        mediaFileIds:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          default: []
+          items:
+            $ref: "#/components/schemas/Id"
+
+    PostAuthorSummary:
+      type: object
+      required: [authorType, authorId, displayName, avatar]
+      properties:
+        authorType:
+          $ref: "#/components/schemas/PostAuthorType"
+        authorId:
+          $ref: "#/components/schemas/Id"
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 256
+        avatar:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PublicImageView"
+    PostActivityCard:
+      type: object
+      description: 引用活动后来变为不可见时，动态仍可读取，但 activity 返回 null。
+      required: [activityId, status, title, cover, startsAt, endsAt]
+      properties:
+        activityId:
+          $ref: "#/components/schemas/Id"
+        status:
+          $ref: "#/components/schemas/PublicActivityStatus"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 20
+        cover:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PublicImageView"
+        startsAt:
+          $ref: "#/components/schemas/Instant"
+        endsAt:
+          $ref: "#/components/schemas/Instant"
+
+    PublicPost:
+      type: object
+      required:
+        - postId
+        - author
+        - visibility
+        - title
+        - content
+        - media
+        - activity
+        - publishedAt
+      properties:
+        postId:
+          $ref: "#/components/schemas/Id"
+        author:
+          $ref: "#/components/schemas/PostAuthorSummary"
+        visibility:
+          $ref: "#/components/schemas/PostVisibility"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 20
+        content:
+          type: string
+          maxLength: 5000
+          nullable: true
+        media:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/PublicImageView"
+        activity:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PostActivityCard"
+        publishedAt:
+          $ref: "#/components/schemas/Instant"
+    ManagedPostSummary:
+      type: object
+      required:
+        - postId
+        - author
+        - status
+        - visibility
+        - title
+        - content
+        - media
+        - activity
+        - version
+        - publishedAt
+        - updatedAt
+      properties:
+        postId:
+          $ref: "#/components/schemas/Id"
+        author:
+          $ref: "#/components/schemas/PostAuthorSummary"
+        status:
+          $ref: "#/components/schemas/ManagedPostStatus"
+        visibility:
+          $ref: "#/components/schemas/PostVisibility"
+        title:
+          type: string
+          maxLength: 20
+          nullable: true
+        content:
+          type: string
+          maxLength: 5000
+          nullable: true
+        media:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/PublicImageView"
+        activity:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PostActivityCard"
+        version:
+          type: integer
+          minimum: 0
+        publishedAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        updatedAt:
+          $ref: "#/components/schemas/Instant"
+    ManagedPostDetail:
+      allOf:
+        - $ref: "#/components/schemas/ManagedPostSummary"
+        - type: object
+          required: [createdAt, hiddenAt]
+          properties:
+            createdAt:
+              $ref: "#/components/schemas/Instant"
+            hiddenAt:
+              nullable: true
+              allOf:
+                - $ref: "#/components/schemas/Instant"
+
+    PublicPostPage:
+      type: object
+      required: [items, nextCursor, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicPost"
+        nextCursor:
+          type: string
+          nullable: true
+        hasMore:
+          type: boolean
+    ManagedPostPage:
+      type: object
+      required: [items, nextCursor, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ManagedPostSummary"
+        nextCursor:
+          type: string
+          nullable: true
+        hasMore:
+          type: boolean
+    PublicPostPageResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/PublicPostPage"
+    PublicPostResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/PublicPost"
+    ManagedPostPageResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/ManagedPostPage"
+    ManagedPostDetailResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/ManagedPostDetail"
+
+    PublicImageView:
+      type: object
+      required: [fileId, url]
+      properties:
+        fileId:
+          $ref: "#/components/schemas/Id"
+        url:
+          type: string
+          example: /api/v1/files/1900000000000000301/content
+
+    ActivityOwnerSummary:
+      type: object
+      required: [ownerType, ownerId, displayName, avatar]
+      properties:
+        ownerType:
+          $ref: "#/components/schemas/ActivityOwnerType"
+        ownerId:
+          $ref: "#/components/schemas/Id"
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 256
+        avatar:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PublicImageView"
+
+    PublicOrganizationDetail:
+      type: object
+      required:
+        - organizationId
+        - name
+        - avatar
+        - summary
+        - region
+        - addressDetail
+        - followerCount
+      properties:
+        organizationId:
+          $ref: "#/components/schemas/Id"
+        name:
+          type: string
+          minLength: 2
+          maxLength: 256
+        avatar:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PublicImageView"
+        summary:
+          type: string
+          maxLength: 1000
+          nullable: true
+        region:
+          $ref: "#/components/schemas/RegionView"
+        addressDetail:
+          type: string
+          minLength: 1
+          maxLength: 512
+        followerCount:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 按当前公开可用关注者实时统计；不可用关注者关系保留但不计数。
+    PublicOrganizationDetailResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/PublicOrganizationDetail"
+
+    PublicActivitySummary:
+      type: object
+      required:
+        - activityId
+        - status
+        - title
+        - categoryCode
+        - cover
+        - owner
+        - startsAt
+        - endsAt
+        - regionCode
+        - addressDetail
+        - latitude
+        - longitude
+        - capacity
+        - participantCount
+        - registrationStatus
+        - feeType
+        - placeName
+        - coordinateSystem
+        - distanceMeters
+        - topics
+      properties:
+        activityId:
+          $ref: "#/components/schemas/Id"
+        status:
+          $ref: "#/components/schemas/PublicActivityStatus"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 20
+        categoryCode:
+          $ref: "#/components/schemas/ActivityCategory"
+        cover:
+          $ref: "#/components/schemas/PublicImageView"
+        owner:
+          $ref: "#/components/schemas/ActivityOwnerSummary"
+        startsAt:
+          $ref: "#/components/schemas/Instant"
+        endsAt:
+          $ref: "#/components/schemas/Instant"
+        regionCode:
+          $ref: "#/components/schemas/ActivityRegionCode"
+        addressDetail:
+          type: string
+          minLength: 1
+          maxLength: 512
+        latitude:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityLatitude"
+        longitude:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityLongitude"
+        capacity:
+          type: integer
+          minimum: 1
+        participantCount:
+          type: integer
+          minimum: 0
+        registrationStatus:
+          $ref: "#/components/schemas/ActivityRegistrationStatus"
+        feeType:
+          $ref: "#/components/schemas/ActivityFeeType"
+        placeName:
+          $ref: "#/components/schemas/ActivityPlaceName"
+        coordinateSystem:
+          $ref: "#/components/schemas/ActivityCoordinateSystem"
+        distanceMeters:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+          description: 仅附近模式返回 Haversine 整数米距离；普通列表返回 null。
+        topics:
+          $ref: "#/components/schemas/ActivityTopics"
+
+    PublicActivityDetail:
+      allOf:
+        - $ref: "#/components/schemas/PublicActivitySummary"
+        - type: object
+          required:
+            - description
+            - media
+            - registrationStartsAt
+            - registrationEndsAt
+            - signupDetails
+            - organizerMessage
+            - myParticipationStatus
+            - viewerIsOwner
+            - publishedAt
+            - updatedAt
+            - registrationGender
+            - organizerPhone
+            - organizerWechat
+            - organizerWechatQr
+            - refundPolicy
+          properties:
+            description:
+              type: string
+              minLength: 1
+              maxLength: 5000
+            media:
+              type: array
+              maxItems: 5
+              items:
+                $ref: "#/components/schemas/PublicImageView"
+            registrationStartsAt:
+              $ref: "#/components/schemas/Instant"
+            registrationEndsAt:
+              $ref: "#/components/schemas/Instant"
+            signupDetails:
+              type: string
+              maxLength: 2000
+              nullable: true
+              description: 企业活动固定返回 null。
+            organizerMessage:
+              type: string
+              maxLength: 1000
+              nullable: true
+              description: 企业活动固定返回 null。
+            myParticipationStatus:
+              nullable: true
+              allOf:
+                - $ref: "#/components/schemas/ParticipationStatus"
+              description: |
+                携带有效登录令牌时返回本人参与状态；匿名、从未报名或当前查看者是活动发起者时返回 null。
+            viewerIsOwner:
+              type: boolean
+              description: 当前登录用户是否为个人活动发起者或企业活动的有效 OWNER；匿名访问固定为 false。
+            publishedAt:
+              $ref: "#/components/schemas/Instant"
+            updatedAt:
+              $ref: "#/components/schemas/Instant"
+            registrationGender:
+              $ref: "#/components/schemas/ActivityRegistrationGender"
+            organizerPhone:
+              type: string
+              maxLength: 32
+              nullable: true
+              description: 仅活动发起者或当前 ACTIVE 报名者可见。
+            organizerWechat:
+              type: string
+              maxLength: 64
+              nullable: true
+              description: 仅活动发起者或当前 ACTIVE 报名者可见。
+            organizerWechatQr:
+              nullable: true
+              allOf:
+                - $ref: "#/components/schemas/PublicImageView"
+              description: 仅活动发起者或当前 ACTIVE 报名者可见，url 指向受保护二维码接口。
+            refundPolicy:
+              type: string
+              nullable: true
+              description: 当前版本固定为 null。
+
+    ActivityMapItem:
+      type: object
+      required:
+        - activityId
+        - title
+        - categoryCode
+        - cover
+        - startsAt
+        - endsAt
+        - regionCode
+        - addressDetail
+        - latitude
+        - longitude
+        - registrationStatus
+        - feeType
+        - placeName
+        - coordinateSystem
+        - distanceMeters
+        - topics
+      properties:
+        activityId:
+          $ref: "#/components/schemas/Id"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 20
+        categoryCode:
+          $ref: "#/components/schemas/ActivityCategory"
+        cover:
+          $ref: "#/components/schemas/PublicImageView"
+        startsAt:
+          $ref: "#/components/schemas/Instant"
+        endsAt:
+          $ref: "#/components/schemas/Instant"
+        regionCode:
+          $ref: "#/components/schemas/ActivityRegionCode"
+        addressDetail:
+          type: string
+          minLength: 1
+          maxLength: 512
+        latitude:
+          $ref: "#/components/schemas/ActivityLatitude"
+        longitude:
+          $ref: "#/components/schemas/ActivityLongitude"
+        registrationStatus:
+          $ref: "#/components/schemas/ActivityRegistrationStatus"
+        feeType:
+          $ref: "#/components/schemas/ActivityFeeType"
+        placeName:
+          $ref: "#/components/schemas/ActivityPlaceName"
+        coordinateSystem:
+          $ref: "#/components/schemas/ActivityCoordinateSystem"
+        distanceMeters:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+          description: 用户提供完整坐标时返回按 Haversine 计算的整数米距离；未提供时为 null。
+        topics:
+          $ref: "#/components/schemas/ActivityTopics"
+
+    ActivityMap:
+      type: object
+      required: [items, truncated]
+      properties:
+        items:
+          type: array
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/ActivityMapItem"
+        truncated:
+          type: boolean
+          description: true 表示当前地图视野内还有未返回的活动。
+
+    ManagedActivitySummary:
+      type: object
+      required:
+        - activityId
+        - status
+        - title
+        - categoryCode
+        - cover
+        - owner
+        - startsAt
+        - endsAt
+        - regionCode
+        - addressDetail
+        - latitude
+        - longitude
+        - capacity
+        - participantCount
+        - feeType
+        - version
+        - updatedAt
+        - placeName
+        - coordinateSystem
+        - topics
+      properties:
+        activityId:
+          $ref: "#/components/schemas/Id"
+        status:
+          $ref: "#/components/schemas/ActivityStatus"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 20
+        categoryCode:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityCategory"
+        cover:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PublicImageView"
+        owner:
+          $ref: "#/components/schemas/ActivityOwnerSummary"
+        startsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        endsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        regionCode:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityRegionCode"
+        addressDetail:
+          type: string
+          minLength: 1
+          maxLength: 512
+          nullable: true
+        latitude:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityLatitude"
+        longitude:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityLongitude"
+        capacity:
+          type: integer
+          minimum: 1
+          nullable: true
+        participantCount:
+          type: integer
+          minimum: 0
+        feeType:
+          $ref: "#/components/schemas/ActivityFeeType"
+        version:
+          type: integer
+          format: int32
+          minimum: 0
+        updatedAt:
+          $ref: "#/components/schemas/Instant"
+        placeName:
+          $ref: "#/components/schemas/ActivityPlaceName"
+        coordinateSystem:
+          $ref: "#/components/schemas/ActivityCoordinateSystem"
+        topics:
+          $ref: "#/components/schemas/ActivityTopics"
+
+    ManagedActivityDetail:
+      allOf:
+        - $ref: "#/components/schemas/ManagedActivitySummary"
+        - type: object
+          required:
+            - description
+            - media
+            - registrationStartsAt
+            - registrationEndsAt
+            - signupDetails
+            - organizerMessage
+            - createdAt
+            - publishedAt
+            - registrationGender
+            - organizerPhone
+            - organizerWechat
+            - organizerWechatQr
+            - refundPolicy
+          properties:
+            description:
+              type: string
+              maxLength: 5000
+              nullable: true
+            media:
+              type: array
+              maxItems: 5
+              items:
+                $ref: "#/components/schemas/PublicImageView"
+            registrationStartsAt:
+              nullable: true
+              allOf:
+                - $ref: "#/components/schemas/Instant"
+            registrationEndsAt:
+              nullable: true
+              allOf:
+                - $ref: "#/components/schemas/Instant"
+            signupDetails:
+              type: string
+              maxLength: 2000
+              nullable: true
+            organizerMessage:
+              type: string
+              maxLength: 1000
+              nullable: true
+            createdAt:
+              $ref: "#/components/schemas/Instant"
+            publishedAt:
+              nullable: true
+              allOf:
+                - $ref: "#/components/schemas/Instant"
+            registrationGender:
+              $ref: "#/components/schemas/ActivityRegistrationGender"
+            organizerPhone:
+              type: string
+              maxLength: 32
+              nullable: true
+            organizerWechat:
+              type: string
+              maxLength: 64
+              nullable: true
+            organizerWechatQr:
+              nullable: true
+              allOf:
+                - $ref: "#/components/schemas/PublicImageView"
+            refundPolicy:
+              type: string
+              nullable: true
+              description: 当前版本固定为 null。
+
+    ActivityParticipation:
+      type: object
+      required:
+        - participationId
+        - activityId
+        - userId
+        - status
+        - joinedAt
+        - cancelledAt
+        - terminatedAt
+        - terminationReason
+        - participantCount
+      properties:
+        participationId:
+          $ref: "#/components/schemas/Id"
+        activityId:
+          $ref: "#/components/schemas/Id"
+        userId:
+          $ref: "#/components/schemas/Id"
+        status:
+          $ref: "#/components/schemas/ParticipationStatus"
+        joinedAt:
+          $ref: "#/components/schemas/Instant"
+          description: 当前有效报名时间；重新报名成功时更新为服务端当前时间。
+        cancelledAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+          description: 用户主动取消时间；重新报名成功时清空。
+        terminatedAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+          description: 活动取消或被发起者移除时间；重新报名成功时清空。
+        terminationReason:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ParticipationTerminationReason"
+          description: 仅 TERMINATED 时有值；重新报名成功时清空。
+        participantCount:
+          type: integer
+          format: int32
+          minimum: 0
+          description: 操作完成后的活动有效参与人数。
+
+    ActivityParticipantSummary:
+      type: object
+      required: [userId, nickname, avatar, joinedAt]
+      properties:
+        userId:
+          $ref: "#/components/schemas/Id"
+        nickname:
+          type: string
+          minLength: 2
+          maxLength: 20
+        avatar:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AvatarView"
+        joinedAt:
+          $ref: "#/components/schemas/Instant"
+
+    ParticipationActivitySummary:
+      type: object
+      required:
+        - activityId
+        - status
+        - title
+        - categoryCode
+        - cover
+        - owner
+        - startsAt
+        - endsAt
+        - regionCode
+        - addressDetail
+        - latitude
+        - longitude
+        - capacity
+        - participantCount
+        - registrationStatus
+        - feeType
+      properties:
+        activityId:
+          $ref: "#/components/schemas/Id"
+        status:
+          $ref: "#/components/schemas/ActivityStatus"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 20
+        categoryCode:
+          $ref: "#/components/schemas/ActivityCategory"
+        cover:
+          $ref: "#/components/schemas/PublicImageView"
+        owner:
+          $ref: "#/components/schemas/ActivityOwnerSummary"
+        startsAt:
+          $ref: "#/components/schemas/Instant"
+        endsAt:
+          $ref: "#/components/schemas/Instant"
+        regionCode:
+          $ref: "#/components/schemas/ActivityRegionCode"
+        addressDetail:
+          type: string
+          minLength: 1
+          maxLength: 512
+        latitude:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityLatitude"
+        longitude:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityLongitude"
+        capacity:
+          type: integer
+          format: int32
+          minimum: 1
+        participantCount:
+          type: integer
+          format: int32
+          minimum: 0
+        registrationStatus:
+          $ref: "#/components/schemas/ActivityRegistrationStatus"
+        feeType:
+          $ref: "#/components/schemas/ActivityFeeType"
+
+    MyParticipationItem:
+      type: object
+      required:
+        - participationId
+        - userId
+        - status
+        - joinedAt
+        - cancelledAt
+        - terminatedAt
+        - terminationReason
+        - activity
+      properties:
+        participationId:
+          $ref: "#/components/schemas/Id"
+        userId:
+          $ref: "#/components/schemas/Id"
+        status:
+          $ref: "#/components/schemas/ParticipationStatus"
+        joinedAt:
+          $ref: "#/components/schemas/Instant"
+        cancelledAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        terminatedAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        terminationReason:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ParticipationTerminationReason"
+        activity:
+          $ref: "#/components/schemas/ParticipationActivitySummary"
+
+    FavoriteState:
+      type: object
+      required: [favorited, favoritedAt]
+      properties:
+        favorited:
+          type: boolean
+        favoritedAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+
+    FavoriteActivityItem:
+      type: object
+      required: [favoritedAt, activity]
+      properties:
+        favoritedAt:
+          $ref: "#/components/schemas/Instant"
+        activity:
+          $ref: "#/components/schemas/PublicActivitySummary"
+
+    ActivityCommentCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: 服务端去除首尾空白后按 Unicode 码点校验。
+        parentCommentId:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Id"
+
+    ActivityCommentAuthor:
+      type: object
+      required: [userId, nickname, avatar]
+      properties:
+        userId:
+          $ref: "#/components/schemas/Id"
+        nickname:
+          type: string
+        avatar:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PublicImageView"
+
+    ActivityComment:
+      type: object
+      required:
+        - commentId
+        - activityId
+        - parentCommentId
+        - deleted
+        - content
+        - author
+        - createdAt
+        - deletedAt
+      properties:
+        commentId:
+          $ref: "#/components/schemas/Id"
+        activityId:
+          $ref: "#/components/schemas/Id"
+        parentCommentId:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Id"
+        deleted:
+          type: boolean
+        content:
+          type: string
+          nullable: true
+          maxLength: 500
+        author:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityCommentAuthor"
+        createdAt:
+          $ref: "#/components/schemas/Instant"
+        deletedAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+
+    PublicActivityPage:
+      type: object
+      required: [items, nextCursor, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicActivitySummary"
+        nextCursor:
+          type: string
+          nullable: true
+        hasMore:
+          type: boolean
+    ManagedActivityPage:
+      type: object
+      required: [items, nextCursor, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ManagedActivitySummary"
+        nextCursor:
+          type: string
+          nullable: true
+        hasMore:
+          type: boolean
+    ActivityParticipantPage:
+      type: object
+      required: [items, nextCursor, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityParticipantSummary"
+        nextCursor:
+          type: string
+          nullable: true
+        hasMore:
+          type: boolean
+    MyParticipationPage:
+      type: object
+      required: [items, nextCursor, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MyParticipationItem"
+        nextCursor:
+          type: string
+          nullable: true
+        hasMore:
+          type: boolean
+    FavoriteActivityPage:
+      type: object
+      required: [items, nextCursor, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FavoriteActivityItem"
+        nextCursor:
+          type: string
+          nullable: true
+        hasMore:
+          type: boolean
+    ActivityCommentPage:
+      type: object
+      required: [items, nextCursor, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityComment"
+        nextCursor:
+          type: string
+          nullable: true
+        hasMore:
+          type: boolean
+
+    PublicActivityPageResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/PublicActivityPage"
+    ActivityMapResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/ActivityMap"
+    PublicActivityDetailResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/PublicActivityDetail"
+    ManagedActivityPageResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/ManagedActivityPage"
+    ManagedActivityDetailResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/ManagedActivityDetail"
+    ActivityParticipationResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/ActivityParticipation"
+    ActivityParticipantPageResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/ActivityParticipantPage"
+    MyParticipationPageResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/MyParticipationPage"
+    FavoriteStateResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/FavoriteState"
+    FavoriteActivityPageResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/FavoriteActivityPage"
+    ActivityCommentResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/ActivityComment"
+    ActivityCommentPageResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/ActivityCommentPage"
+
+    PersonalActivityCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [title]
+      description: |
+        该接口固定创建 DRAFT，只保存发布待办内容，不执行发布；后续通过 publication 命令发布。
+        草稿仅要求非空标题。发布命令会校验标题、分类、描述、封面、报名时间、活动时间、区县、
+        详细地址和人数上限等公共发布字段完整，并校验以下时间顺序。
+        时间必须满足 registrationStartsAt < registrationEndsAt <= startsAt < endsAt。
+        coverFileId 不得出现在 mediaFileIds 中，数组省略时按空数组处理。
+        所有图片必须由当前操作人上传、用途为 ACTIVITY 且处于可关联状态；关联后激活。
+        字符串由服务端去除首尾空白，选填字符串处理后为空时保存为 null。
+        latitude 与 longitude 必须同时为空或同时有值，非空时统一使用 GCJ-02；草稿允许同时为空，发布前必须同时有值。
+        placeName 表示集合地点名称，草稿允许为空，发布时不得为空。
+        coordinateSystem 在有坐标时可省略并默认 GCJ-02，显式值只接受 GCJ-02；无坐标时必须为空。
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 20
+        categoryCode:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityCategory"
+        description:
+          type: string
+          maxLength: 5000
+          nullable: true
+        coverFileId:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Id"
+        mediaFileIds:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          default: []
+          items:
+            $ref: "#/components/schemas/Id"
+        registrationStartsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        registrationEndsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        startsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        endsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        regionCode:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityRegionCode"
+        addressDetail:
+          type: string
+          minLength: 1
+          maxLength: 512
+          nullable: true
+        placeName:
+          $ref: "#/components/schemas/ActivityPlaceName"
+        latitude:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityLatitude"
+        longitude:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityLongitude"
+        coordinateSystem:
+          $ref: "#/components/schemas/ActivityCoordinateSystem"
+        topics:
+          $ref: "#/components/schemas/ActivityTopics"
+        capacity:
+          type: integer
+          format: int32
+          minimum: 1
+          nullable: true
+        signupDetails:
+          type: string
+          maxLength: 2000
+          nullable: true
+        organizerMessage:
+          type: string
+          maxLength: 1000
+          nullable: true
+        registrationGender:
+          $ref: "#/components/schemas/ActivityRegistrationGender"
+        organizerPhone:
+          type: string
+          maxLength: 32
+          nullable: true
+        organizerWechat:
+          type: string
+          maxLength: 64
+          nullable: true
+        organizerWechatQrFileId:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Id"
+        refundPolicy:
+          type: string
+          nullable: true
+          description: 必须传 null；当前版本不启用退款政策。
+
+    OrganizationActivityCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [title]
+      description: |
+        该接口固定创建 DRAFT，只保存发布待办内容，不执行发布；后续通过 publication 命令发布。
+        草稿仅要求非空标题。发布命令会校验标题、分类、描述、封面、报名时间、活动时间、区县、
+        详细地址和人数上限等公共发布字段完整，并校验以下时间顺序。
+        时间必须满足 registrationStartsAt < registrationEndsAt <= startsAt < endsAt。
+        coverFileId 不得出现在 mediaFileIds 中，数组省略时按空数组处理。
+        所有图片必须由当前操作人上传、用途为 ACTIVITY 且处于可关联状态；关联后激活。
+        字符串由服务端去除首尾空白，选填字符串处理后为空时保存为 null。
+        企业请求不接受个人专属的 signupDetails 或 organizerMessage。
+        latitude 与 longitude 必须同时为空或同时有值，非空时统一使用 GCJ-02；草稿允许同时为空，发布前必须同时有值。
+        placeName 表示集合地点名称，草稿允许为空，发布时不得为空。
+        coordinateSystem 在有坐标时可省略并默认 GCJ-02，显式值只接受 GCJ-02；无坐标时必须为空。
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 20
+        categoryCode:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityCategory"
+        description:
+          type: string
+          maxLength: 5000
+          nullable: true
+        coverFileId:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Id"
+        mediaFileIds:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          default: []
+          items:
+            $ref: "#/components/schemas/Id"
+        registrationStartsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        registrationEndsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        startsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        endsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        regionCode:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityRegionCode"
+        addressDetail:
+          type: string
+          minLength: 1
+          maxLength: 512
+          nullable: true
+        placeName:
+          $ref: "#/components/schemas/ActivityPlaceName"
+        latitude:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityLatitude"
+        longitude:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityLongitude"
+        coordinateSystem:
+          $ref: "#/components/schemas/ActivityCoordinateSystem"
+        topics:
+          $ref: "#/components/schemas/ActivityTopics"
+        capacity:
+          type: integer
+          format: int32
+          minimum: 1
+          nullable: true
+        registrationGender:
+          $ref: "#/components/schemas/ActivityRegistrationGender"
+        organizerPhone:
+          type: string
+          maxLength: 32
+          nullable: true
+        organizerWechat:
+          type: string
+          maxLength: 64
+          nullable: true
+        organizerWechatQrFileId:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Id"
+        refundPolicy:
+          type: string
+          nullable: true
+          description: 必须传 null；当前版本不启用退款政策。
+
+    PersonalActivityUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [version, title]
+      description: |
+        PUT 完整替换个人活动内容。可空字段省略或传 null 时清空，mediaFileIds 省略时按空数组处理。
+        内容更新不改变活动状态：DRAFT 仍为 DRAFT，PUBLISHED 仍为 PUBLISHED。
+        发布草稿必须另行调用 publication 命令；本请求不接受目标状态。
+        DRAFT 仅要求标题；PUBLISHED 更新时必须保持全部公共发布字段完整。
+        PUBLISHED 更新时原 endsAt 和本请求替换后的 endsAt 都必须晚于服务端本次命令判定时刻。
+        时间顺序、图片归属、ACTIVITY 用途、可关联状态、激活和去空白规则与创建相同。
+        latitude 与 longitude 必须同时为空或同时有值，非空时统一使用 GCJ-02；PUBLISHED 更新后两者不得为空。
+        placeName 表示集合地点名称，PUBLISHED 更新后不得为空；历史数据若缺失必须在本次更新补齐。
+        coordinateSystem 在有坐标时可省略并默认 GCJ-02，显式值只接受 GCJ-02；无坐标时必须为空。
+      properties:
+        version:
+          type: integer
+          format: int32
+          minimum: 0
+        title:
+          type: string
+          minLength: 1
+          maxLength: 20
+        categoryCode:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityCategory"
+        description:
+          type: string
+          maxLength: 5000
+          nullable: true
+        coverFileId:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Id"
+        mediaFileIds:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          default: []
+          items:
+            $ref: "#/components/schemas/Id"
+        registrationStartsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        registrationEndsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        startsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        endsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        regionCode:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityRegionCode"
+        addressDetail:
+          type: string
+          minLength: 1
+          maxLength: 512
+          nullable: true
+        placeName:
+          $ref: "#/components/schemas/ActivityPlaceName"
+        latitude:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityLatitude"
+        longitude:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityLongitude"
+        coordinateSystem:
+          $ref: "#/components/schemas/ActivityCoordinateSystem"
+        topics:
+          $ref: "#/components/schemas/ActivityTopics"
+        capacity:
+          type: integer
+          format: int32
+          minimum: 1
+          nullable: true
+        signupDetails:
+          type: string
+          maxLength: 2000
+          nullable: true
+        organizerMessage:
+          type: string
+          maxLength: 1000
+          nullable: true
+        registrationGender:
+          $ref: "#/components/schemas/ActivityRegistrationGender"
+        organizerPhone:
+          type: string
+          maxLength: 32
+          nullable: true
+        organizerWechat:
+          type: string
+          maxLength: 64
+          nullable: true
+        organizerWechatQrFileId:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Id"
+        refundPolicy:
+          type: string
+          nullable: true
+          description: 必须传 null；当前版本不启用退款政策。
+
+    OrganizationActivityUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [version, title]
+      description: |
+        PUT 完整替换企业活动内容。可空字段省略或传 null 时清空，mediaFileIds 省略时按空数组处理。
+        内容更新不改变活动状态：DRAFT 仍为 DRAFT，PUBLISHED 仍为 PUBLISHED。
+        发布草稿必须另行调用 publication 命令；本请求不接受目标状态。
+        DRAFT 仅要求标题；PUBLISHED 更新时必须保持全部公共发布字段完整。
+        PUBLISHED 更新时原 endsAt 和本请求替换后的 endsAt 都必须晚于服务端本次命令判定时刻。
+        时间顺序、图片归属、ACTIVITY 用途、可关联状态、激活和去空白规则与创建相同。
+        企业请求不接受 signupDetails 或 organizerMessage。
+        latitude 与 longitude 必须同时为空或同时有值，非空时统一使用 GCJ-02；PUBLISHED 更新后两者不得为空。
+        placeName 表示集合地点名称，PUBLISHED 更新后不得为空；历史数据若缺失必须在本次更新补齐。
+        coordinateSystem 在有坐标时可省略并默认 GCJ-02，显式值只接受 GCJ-02；无坐标时必须为空。
+      properties:
+        version:
+          type: integer
+          format: int32
+          minimum: 0
+        title:
+          type: string
+          minLength: 1
+          maxLength: 20
+        categoryCode:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityCategory"
+        description:
+          type: string
+          maxLength: 5000
+          nullable: true
+        coverFileId:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Id"
+        mediaFileIds:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          default: []
+          items:
+            $ref: "#/components/schemas/Id"
+        registrationStartsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        registrationEndsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        startsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        endsAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        regionCode:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityRegionCode"
+        addressDetail:
+          type: string
+          minLength: 1
+          maxLength: 512
+          nullable: true
+        placeName:
+          $ref: "#/components/schemas/ActivityPlaceName"
+        latitude:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityLatitude"
+        longitude:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ActivityLongitude"
+        coordinateSystem:
+          $ref: "#/components/schemas/ActivityCoordinateSystem"
+        topics:
+          $ref: "#/components/schemas/ActivityTopics"
+        capacity:
+          type: integer
+          format: int32
+          minimum: 1
+          nullable: true
+        registrationGender:
+          $ref: "#/components/schemas/ActivityRegistrationGender"
+        organizerPhone:
+          type: string
+          maxLength: 32
+          nullable: true
+        organizerWechat:
+          type: string
+          maxLength: 64
+          nullable: true
+        organizerWechatQrFileId:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Id"
+        refundPolicy:
+          type: string
+          nullable: true
+          description: 必须传 null；当前版本不启用退款政策。
+
+    NicknameChange:
+      type: object
+      required: [nickname, nicknameChangedAt, nextNicknameChangeAt]
+      properties:
+        nickname:
+          type: string
+          minLength: 2
+          maxLength: 20
+        nicknameChangedAt:
+          $ref: "#/components/schemas/Instant"
+        nextNicknameChangeAt:
+          $ref: "#/components/schemas/Instant"
+    NicknameChangeResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/NicknameChange"
+    InterestTagItemsResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/InterestTag"
+
+    PhoneBindingRequest:
+      type: object
+      required: [phoneCode]
+      properties:
+        phoneCode:
+          type: string
+          minLength: 1
+          maxLength: 512
+          description: 微信 getPhoneNumber 返回的一次性动态凭证，不是手机号明文。
+      example:
+        phoneCode: wx-phone-code-example
+    PhoneBinding:
+      type: object
+      required: [bound, countryCode, maskedPhone, boundAt]
+      properties:
+        bound:
+          type: boolean
+        countryCode:
+          type: string
+          nullable: true
+        maskedPhone:
+          type: string
+          nullable: true
+        boundAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+      example:
+        bound: true
+        countryCode: "86"
+        maskedPhone: "138****8000"
+        boundAt: "2026-08-04T08:00:00Z"
+    PhoneBindingResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/PhoneBinding"
+    Session:
+      type: object
+      required:
+        - sessionId
+        - deviceName
+        - platform
+        - osVersion
+        - appVersion
+        - regionCode
+        - lastActiveAt
+        - expiresAt
+        - current
+      properties:
+        sessionId:
+          $ref: "#/components/schemas/Id"
+        deviceName:
+          type: string
+        platform:
+          type: string
+        osVersion:
+          type: string
+          nullable: true
+        appVersion:
+          type: string
+        regionCode:
+          type: string
+          nullable: true
+        lastActiveAt:
+          $ref: "#/components/schemas/Instant"
+        expiresAt:
+          $ref: "#/components/schemas/Instant"
+        current:
+          type: boolean
+    SessionItemsResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Session"
+    SecurityEvent:
+      type: object
+      required: [eventId, type, severity, deviceName, regionCode, occurredAt]
+      properties:
+        eventId:
+          $ref: "#/components/schemas/Id"
+        type:
+          type: string
+        severity:
+          type: string
+        deviceName:
+          type: string
+          nullable: true
+        regionCode:
+          type: string
+          nullable: true
+        occurredAt:
+          $ref: "#/components/schemas/Instant"
+    SecurityEventPageResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: object
+              required: [items, nextCursor, hasMore]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/SecurityEvent"
+                nextCursor:
+                  type: string
+                  nullable: true
+                hasMore:
+                  type: boolean
+
+    DeactivationRequest:
+      type: object
+      required: [wechatCode, confirmed]
+      properties:
+        wechatCode:
+          type: string
+          minLength: 1
+          maxLength: 128
+        confirmed:
+          type: boolean
+          enum: [true]
+    Deactivation:
+      type: object
+      required: [requestId, status, requestedAt, executeAfter, canCancel]
+      properties:
+        requestId:
+          $ref: "#/components/schemas/Id"
+        status:
+          type: string
+        requestedAt:
+          $ref: "#/components/schemas/Instant"
+        executeAfter:
+          $ref: "#/components/schemas/Instant"
+        canCancel:
+          type: boolean
+    DeactivationResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/Deactivation"
+    NullableDeactivationResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              nullable: true
+              allOf:
+                - $ref: "#/components/schemas/Deactivation"
+    DataExport:
+      type: object
+      required:
+        - requestId
+        - status
+        - requestedAt
+        - processedAt
+        - resultExpiresAt
+        - failureCode
+      properties:
+        requestId:
+          $ref: "#/components/schemas/Id"
+        status:
+          type: string
+        requestedAt:
+          $ref: "#/components/schemas/Instant"
+        processedAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        resultExpiresAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        failureCode:
+          type: string
+          nullable: true
+    DataExportResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/DataExport"
+    DownloadUrl:
+      type: object
+      required: [downloadUrl, expiresAt]
+      properties:
+        downloadUrl:
+          type: string
+          description: 当前实现返回需要继续携带 Bearer token 请求的相对 API 路径。
+          example: /api/v1/files/1900000000000000301/content
+        expiresAt:
+          $ref: "#/components/schemas/Instant"
+    DownloadUrlResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/DownloadUrl"
+
+    File:
+      type: object
+      required:
+        - fileId
+        - purpose
+        - contentType
+        - sizeBytes
+        - accessLevel
+        - scanStatus
+        - lifecycleStatus
+        - expiresAt
+        - url
+      properties:
+        fileId:
+          $ref: "#/components/schemas/Id"
+        purpose:
+          $ref: "#/components/schemas/FilePurpose"
+        contentType:
+          type: string
+          example: image/jpeg
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+        accessLevel:
+          type: string
+          example: PUBLIC
+        scanStatus:
+          type: string
+          example: PASSED
+        lifecycleStatus:
+          type: string
+          example: TEMPORARY
+        expiresAt:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Instant"
+        url:
+          type: string
+          nullable: true
+          example: /api/v1/files/1900000000000000301/content
+    FileResult:
+      allOf:
+        - $ref: "#/components/schemas/ResultMeta"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/File"

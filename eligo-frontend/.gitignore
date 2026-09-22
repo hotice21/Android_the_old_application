@@ -1,0 +1,29 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+.npm-cache
+.DS_Store
+dist
+*.local
+
+# 本地环境变量（参考 .env.example，不要提交真实配置）
+.env
+.env.*.local
+
+# Local pixel-comparison captures
+artifacts
+
+# Editor directories and files
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

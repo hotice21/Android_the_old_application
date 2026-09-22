@@ -1,0 +1,16 @@
+.git
+.gitignore
+.gradle
+.kotlin
+build
+.idea
+.vscode
+*.iml
+*.iws
+*.ipr
+.env
+*.log
+HELP.md
+src/test
+docker-compose.yml
+.dockerignore

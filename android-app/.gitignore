@@ -1,0 +1,13 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# H5 构建产物（由 eligo-frontend build:h5 + sync-assets.ps1 生成，不入库）
+app/src/main/assets/h5/

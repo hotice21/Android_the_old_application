@@ -1,0 +1,31 @@
+# 源码压缩包，不要提交
+Eligo-main.zip
+*.zip
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.vscode/
+.idea/
+*.iml
+
+# 各模块构建产物（模块内已有 .gitignore，根级兜底）
+**/build/
+**/dist/
+**/node_modules/
+**/.gradle/
+**/captures/
+**/.cxx/
+**/.kotlin/
+
+# 环境变量（不要提交真实密钥）
+**/.env
+**/.env.*.local
+
+# Android 本地配置
+**/local.properties
+
+# 日志
+**/*.log

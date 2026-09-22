@@ -1,0 +1,75 @@
+/**
+ * eligo 前端全局样式变量（面向老人版）
+ * 字体偏大、间距更大、高对比度
+ */
+
+/* 行为相关颜色 */
+$uni-color-primary: #fe5f02;
+$uni-color-success: #3ab783;
+$uni-color-warning: #f0ad4e;
+$uni-color-error: #ff5b51;
+
+/* Eligo 基础令牌 */
+$eligo-orange: #fe5f02;
+$eligo-orange-light: #ff913f;
+$eligo-coral: #ff5b51;
+$eligo-green: #3ab783;
+$eligo-blue: #007aff;
+$eligo-text: #111111;
+$eligo-text-secondary: #666666;
+$eligo-text-muted: #999999;
+$eligo-surface: #ffffff;
+$eligo-background: #f5f6fa;
+
+/* 文字基本颜色 */
+$uni-text-color: #111;       // 基本色
+$uni-text-color-inverse: #fff; // 反色
+$uni-text-color-grey: #666666; // 辅助灰色
+$uni-text-color-placeholder: #999999;
+$uni-text-color-disable: #c0c0c0;
+
+/* 背景颜色 */
+$uni-bg-color: #fff;
+$uni-bg-color-grey: #f5f6fa;
+$uni-bg-color-hover: #eeeef0;
+$uni-bg-color-mask: rgba(0, 0, 0, 0.45);
+
+/* 边框颜色 */
+$uni-border-color: #e0e0e0;
+
+/* 文字尺寸（老人版：全面增大） */
+$uni-font-size-sm: 15px;
+$uni-font-size-base: 17px;
+$uni-font-size-lg: 20px;
+
+/* 图片尺寸 */
+$uni-img-size-sm: 24px;
+$uni-img-size-base: 32px;
+$uni-img-size-lg: 48px;
+
+/* Border Radius */
+$uni-border-radius-sm: 8px;
+$uni-border-radius-base: 12px;
+$uni-border-radius-lg: 16px;
+$uni-border-radius-circle: 50%;
+
+/* 水平间距 */
+$uni-spacing-row-sm: 8px;
+$uni-spacing-row-base: 16px;
+$uni-spacing-row-lg: 24px;
+
+/* 垂直间距 */
+$uni-spacing-col-sm: 8px;
+$uni-spacing-col-base: 12px;
+$uni-spacing-col-lg: 20px;
+
+/* 透明度 */
+$uni-opacity-disabled: 0.4;
+
+/* 文章场景相关 */
+$uni-color-title: #111111;
+$uni-font-size-title: 24px;
+$uni-color-subtitle: #333333;
+$uni-font-size-subtitle: 20px;
+$uni-color-paragraph: #444444;
+$uni-font-size-paragraph: 17px;
