@@ -1,0 +1,94 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eligo-api
+    restart: unless-stopped
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      # Database
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-eligo}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      DB_USERNAME: ${MYSQL_USER:-eligo}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      # Security keys (Base64-encoded 32-byte values)
+      JWT_SIGNING_KEY_BASE64: ${JWT_SIGNING_KEY_BASE64:?JWT_SIGNING_KEY_BASE64 is required}
+      DATA_ENCRYPTION_KEY_BASE64: ${DATA_ENCRYPTION_KEY_BASE64:?DATA_ENCRYPTION_KEY_BASE64 is required}
+      DATA_LOOKUP_KEY_BASE64: ${DATA_LOOKUP_KEY_BASE64:?DATA_LOOKUP_KEY_BASE64 is required}
+      # WeChat (optional, fill for login feature)
+      WECHAT_APP_ID: ${WECHAT_APP_ID:-}
+      WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:-}
+      # File storage
+      FILE_STORAGE_PROVIDER: LOCAL
+      FILE_STORAGE_LOCAL_ROOT: /data/eligo-files
+    volumes:
+      - eligo-files:/data/eligo-files
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      start_period: 90s
+      retries: 10
+
+  mysql:
+    image: mysql:8.4
+    container_name: eligo-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-eligo}
+      MYSQL_USER: ${MYSQL_USER:-eligo}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+00:00
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: eligo-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: >
+      sh -c '
+        if [ -n "$REDIS_PASSWORD" ]; then
+          exec redis-server --appendonly yes --requirepass "$REDIS_PASSWORD"
+        else
+          exec redis-server --appendonly yes
+        fi
+      '
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "if [ -n \"$$REDIS_PASSWORD\" ]; then redis-cli -a \"$$REDIS_PASSWORD\" ping; else redis-cli ping; fi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mysql-data:
+  redis-data:
+  eligo-files:
