@@ -5,6 +5,6 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Profile
 
 @Configuration(proxyBeanMethods = false)
-@Profile("local", "it")
+@Profile("local", "docker", "it")
 @EnableConfigurationProperties(DevOrganizationSeedProperties::class)
 class DevOrganizationSeedConfiguration

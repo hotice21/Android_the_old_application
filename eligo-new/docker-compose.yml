@@ -12,23 +12,24 @@ services:
       # Database
       DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-eligo}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
       DB_USERNAME: ${MYSQL_USER:-eligo}
-      DB_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-eligo123}
       # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      # Security keys (Base64-encoded 32-byte values)
-      JWT_SIGNING_KEY_BASE64: ${JWT_SIGNING_KEY_BASE64:?JWT_SIGNING_KEY_BASE64 is required}
-      DATA_ENCRYPTION_KEY_BASE64: ${DATA_ENCRYPTION_KEY_BASE64:?DATA_ENCRYPTION_KEY_BASE64 is required}
-      DATA_LOOKUP_KEY_BASE64: ${DATA_LOOKUP_KEY_BASE64:?DATA_LOOKUP_KEY_BASE64 is required}
+      # Security keys（开发环境用固定默认值即可，生产部署务必覆盖）
+      JWT_SIGNING_KEY_BASE64: ${JWT_SIGNING_KEY_BASE64:-IB8eHRwbGhkYFxYVFBMSERAPDg0MCwoJCAcGBQQDAgE=}
+      DATA_ENCRYPTION_KEY_BASE64: ${DATA_ENCRYPTION_KEY_BASE64:-AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=}
+      DATA_LOOKUP_KEY_BASE64: ${DATA_LOOKUP_KEY_BASE64:-Hx4dHBsaGRgXFhUUExIREA8ODQwLCgkIBwYFBAMCAQA=}
       # WeChat (optional, fill for login feature)
       WECHAT_APP_ID: ${WECHAT_APP_ID:-}
       WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:-}
-      # 测试阶段开关：设 ELIGO_SECURITY_ENABLED=false 可免登录调用全部接口
-      ELIGO_SECURITY_ENABLED: ${ELIGO_SECURITY_ENABLED:-true}
+      # 测试阶段：默认关闭所有鉴权校验，前端开发免登录调接口
+      # 生产部署务必设 ELIGO_SECURITY_ENABLED=true
+      ELIGO_SECURITY_ENABLED: ${ELIGO_SECURITY_ENABLED:-false}
       DEV_USER_ID: ${DEV_USER_ID:-1}
       DEV_SESSION_KEY: ${DEV_SESSION_KEY:-dev-session}
-      DEV_ADMIN: ${DEV_ADMIN:-false}
+      DEV_ADMIN: ${DEV_ADMIN:-true}
       # File storage
       FILE_STORAGE_PROVIDER: LOCAL
       FILE_STORAGE_LOCAL_ROOT: /data/eligo-files
@@ -51,10 +52,10 @@ services:
     container_name: eligo-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-eligo}
       MYSQL_USER: ${MYSQL_USER:-eligo}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-eligo123}
     ports:
       - "${MYSQL_PORT:-3306}:3306"
     volumes:

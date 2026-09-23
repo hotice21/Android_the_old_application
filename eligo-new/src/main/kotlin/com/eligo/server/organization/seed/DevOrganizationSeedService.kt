@@ -1,4 +1,4 @@
-﻿package com.eligo.server.organization.seed
+package com.eligo.server.organization.seed
 
 import com.eligo.server.account.service.AccountStateLockService
 import org.springframework.context.annotation.Profile
@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-@Profile("local", "it")
+@Profile("local", "docker", "it")
 class DevOrganizationSeedService(
     private val jdbcTemplate: JdbcTemplate,
     private val properties: DevOrganizationSeedProperties,

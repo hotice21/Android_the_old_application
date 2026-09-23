@@ -1,6 +1,3 @@
-# syntax=docker/dockerfile:1
-
-# Stage 1: Build
 FROM eclipse-temurin:17-jdk-jammy AS build
 
 WORKDIR /workspace
@@ -11,15 +8,13 @@ COPY gradle ./gradle
 
 RUN chmod +x ./gradlew
 
-# Resolve dependencies with a BuildKit cache mount
-RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew dependencies --no-daemon --console=plain > /dev/null
+# Resolve dependencies (Dockerfile 标准语法，兼容性更好)
+RUN ./gradlew dependencies --no-daemon --console=plain > /dev/null
 
 COPY src ./src
 
 # Build the boot jar
-RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew bootJar --no-daemon --console=plain -x test \
+RUN ./gradlew bootJar --no-daemon --console=plain -x test \
     && cp build/libs/*.jar /workspace/app.jar
 
 # Stage 2: Runtime

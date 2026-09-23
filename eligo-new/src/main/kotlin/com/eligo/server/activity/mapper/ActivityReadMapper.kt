@@ -208,7 +208,7 @@ interface ActivityReadMapper {
                     OR (#{status}=3 AND a.status=3)
                     OR (#{status}=4 AND (
                         a.status=4 OR (a.status=2 AND a.ends_at<=#{now})
-                    )
+                    ))
                )
                AND (#{categoryCode} IS NULL OR a.category_code=#{categoryCode})
                AND (#{regionCode} IS NULL OR a.region_code=#{regionCode})
@@ -346,7 +346,7 @@ interface ActivityReadMapper {
                     OR (#{status}=3 AND a.status=3)
                     OR (#{status}=4 AND (
                         a.status=4 OR (a.status=2 AND a.ends_at<=#{now})
-                    )
+                    ))
                )
                AND a.latitude IS NOT NULL
                AND a.longitude IS NOT NULL
