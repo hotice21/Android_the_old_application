@@ -20,8 +20,7 @@ Thumbs.db
 **/.cxx/
 **/.kotlin/
 
-# 环境变量（不要提交真实密钥）
-**/.env
+# 环境变量：.env 提交默认开发配置（不含密钥），.env.local 等临时文件忽略
 **/.env.*.local
 
 # Android 本地配置
