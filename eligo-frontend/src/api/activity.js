@@ -1,91 +1,150 @@
 import { request } from "./request"
 
 /**
- * 活动模块接口
- * TODO: 后端 M2 模块实现后启用
+ * 活动模块接口（对应后端 ActivityController + ParticipationController + ActivityFavoriteController）
  */
 
 /**
- * 分页获取活动列表
+ * 分页获取已发布活动列表（CursorPage 格式）
+ * 返回 { items: [...], nextCursor, hasMore }
  * @param {Object} params
- * @param {number} [params.page] - 当前页码
- * @param {number} [params.pageSize] - 每页数量，默认 10
- * @param {'official'|'partner'} [params.type] - 活动类型
- * @param {string} [params.category] - 活动分类
- * @param {'latest'|'hottest'} [params.sort] - 排序方式
+ * @param {string} [params.cursor] - 游标，首次不传
+ * @param {number} [params.limit] - 每页数量，默认由后端决定
+ * @param {'latest'|'hottest'} [params.sort] - 排序
  */
 export function getActivities(params = {}) {
   const query = new URLSearchParams()
-  if (params.page) query.set("page", String(params.page))
-  if (params.pageSize) query.set("pageSize", String(params.pageSize))
-  if (params.type) query.set("type", params.type)
-  if (params.category) query.set("category", params.category)
+  if (params.cursor) query.set("cursor", params.cursor)
+  if (params.limit) query.set("limit", String(params.limit))
   if (params.sort) query.set("sort", params.sort)
-
   const qs = query.toString()
   return request({
     path: `/api/v1/activities${qs ? "?" + qs : ""}`,
+    auth: false, // 公开列表无需登录
   })
 }
 
 /**
  * 获取活动详情
- * @param {string} id - 活动 ID
+ * @param {string|number} activityId
  */
-export function getActivityDetail(id) {
-  return request({ path: `/api/v1/activities/${id}` })
+export function getActivityDetail(activityId) {
+  return request({ path: `/api/v1/activities/${activityId}` })
 }
 
 /**
- * 切换活动收藏状态
- * @param {string} id - 活动 ID
+ * 地图专用活动列表（带经纬度）
+ * @param {Object} params
+ * @param {number} params.latitude
+ * @param {number} params.longitude
+ * @param {number} [params.radiusKm] - 半径公里
  */
-export function toggleActivityFavorite(id) {
+export function getMapActivities(params = {}) {
+  const query = new URLSearchParams()
+  if (params.latitude != null) query.set("latitude", String(params.latitude))
+  if (params.longitude != null) query.set("longitude", String(params.longitude))
+  if (params.radiusKm != null) query.set("radiusKm", String(params.radiusKm))
+  const qs = query.toString()
   return request({
-    path: `/api/v1/activities/${id}/favorite`,
-    method: "POST",
+    path: `/api/v1/activities/map${qs ? "?" + qs : ""}`,
+    auth: false,
   })
 }
 
+// ========== 报名（对应 ParticipationController） ==========
+
 /**
  * 报名活动
- * @param {string} id - 活动 ID
- * @param {Object} [data]
- * @param {number} [data.count] - 报名人数，默认 1
+ * PUT /api/v1/activities/{activityId}/participation
  */
-export function enrollActivity(id, data) {
+export function joinActivity(activityId, data = {}) {
   return request({
-    path: `/api/v1/activities/${id}/enroll`,
-    method: "POST",
+    path: `/api/v1/activities/${activityId}/participation`,
+    method: "PUT",
     data,
   })
 }
 
 /**
  * 取消报名
- * @param {string} id - 活动 ID
+ * DELETE /api/v1/activities/{activityId}/participation
  */
-export function cancelEnrollment(id) {
+export function cancelJoinActivity(activityId) {
   return request({
-    path: `/api/v1/activities/${id}/enroll`,
+    path: `/api/v1/activities/${activityId}/participation`,
     method: "DELETE",
   })
 }
 
 /**
  * 获取活动参与者列表
- * @param {string} id - 活动 ID
- * @param {Object} [params]
- * @param {number} [params.page]
- * @param {number} [params.pageSize]
  */
-export function getActivityParticipants(id, params = {}) {
+export function getActivityParticipants(activityId, params = {}) {
   const query = new URLSearchParams()
-  if (params.page) query.set("page", String(params.page))
-  if (params.pageSize) query.set("pageSize", String(params.pageSize))
-
+  if (params.cursor) query.set("cursor", params.cursor)
+  if (params.limit) query.set("limit", String(params.limit))
   const qs = query.toString()
   return request({
-    path: `/api/v1/activities/${id}/participants${qs ? "?" + qs : ""}`,
+    path: `/api/v1/activities/${activityId}/participants${qs ? "?" + qs : ""}`,
+  })
+}
+
+/**
+ * 获取我报名过的活动
+ */
+export function getMyParticipations(params = {}) {
+  const query = new URLSearchParams()
+  if (params.cursor) query.set("cursor", params.cursor)
+  if (params.limit) query.set("limit", String(params.limit))
+  const qs = query.toString()
+  return request({
+    path: `/api/v1/users/me/participations${qs ? "?" + qs : ""}`,
+  })
+}
+
+// ========== 收藏（对应 ActivityFavoriteController） ==========
+
+/**
+ * 查询活动收藏状态
+ * GET /api/v1/activities/{activityId}/favorite → { favorited: boolean, ... }
+ */
+export function getActivityFavoriteStatus(activityId) {
+  return request({
+    path: `/api/v1/activities/${activityId}/favorite`,
+  })
+}
+
+/**
+ * 添加收藏
+ * PUT /api/v1/activities/{activityId}/favorite
+ */
+export function favoriteActivity(activityId) {
+  return request({
+    path: `/api/v1/activities/${activityId}/favorite`,
+    method: "PUT",
+  })
+}
+
+/**
+ * 取消收藏
+ * DELETE /api/v1/activities/{activityId}/favorite
+ */
+export function unfavoriteActivity(activityId) {
+  return request({
+    path: `/api/v1/activities/${activityId}/favorite`,
+    method: "DELETE",
+  })
+}
+
+/**
+ * 我收藏的活动列表
+ */
+export function getMyFavoriteActivities(params = {}) {
+  const query = new URLSearchParams()
+  if (params.cursor) query.set("cursor", params.cursor)
+  if (params.limit) query.set("limit", String(params.limit))
+  const qs = query.toString()
+  return request({
+    path: `/api/v1/users/me/favorite-activities${qs ? "?" + qs : ""}`,
   })
 }

@@ -1,9 +1,7 @@
-﻿package com.eligo.server.activity.mapper
+package com.eligo.server.activity.mapper
 
 import java.math.BigDecimal
 import java.time.LocalDateTime
-import org.apache.ibatis.annotations.Arg
-import org.apache.ibatis.annotations.ConstructorArgs
 import org.apache.ibatis.annotations.Mapper
 import org.apache.ibatis.annotations.Param
 import org.apache.ibatis.annotations.Select
@@ -11,23 +9,6 @@ import org.apache.ibatis.annotations.Select
 @Mapper
 interface ActivityReadMapper {
 
-    @ConstructorArgs(
-        Arg(column = "activity_id", javaType = Long::class, id = true),
-        Arg(column = "title", javaType = String::class),
-        Arg(column = "category_code", javaType = String::class),
-        Arg(column = "cover_file_id", javaType = Long::class),
-        Arg(column = "registration_starts_at", javaType = LocalDateTime::class),
-        Arg(column = "registration_ends_at", javaType = LocalDateTime::class),
-        Arg(column = "starts_at", javaType = LocalDateTime::class),
-        Arg(column = "ends_at", javaType = LocalDateTime::class),
-        Arg(column = "region_code", javaType = String::class),
-        Arg(column = "address_detail", javaType = String::class),
-        Arg(column = "latitude", javaType = BigDecimal::class),
-        Arg(column = "longitude", javaType = BigDecimal::class),
-        Arg(column = "capacity", javaType = Int::class),
-        Arg(column = "participant_count", javaType = Int::class),
-        Arg(column = "place_name", javaType = String::class)
-    )
     @Select("""
             SELECT a.id AS activity_id,
                    a.title,
@@ -65,24 +46,6 @@ interface ActivityReadMapper {
         @Param("limit") limit: Int
     ): List<ActivityMapRow>
 
-    @ConstructorArgs(
-        Arg(column = "activity_id", javaType = Long::class, id = true),
-        Arg(column = "title", javaType = String::class),
-        Arg(column = "category_code", javaType = String::class),
-        Arg(column = "cover_file_id", javaType = Long::class),
-        Arg(column = "registration_starts_at", javaType = LocalDateTime::class),
-        Arg(column = "registration_ends_at", javaType = LocalDateTime::class),
-        Arg(column = "starts_at", javaType = LocalDateTime::class),
-        Arg(column = "ends_at", javaType = LocalDateTime::class),
-        Arg(column = "region_code", javaType = String::class),
-        Arg(column = "address_detail", javaType = String::class),
-        Arg(column = "latitude", javaType = BigDecimal::class),
-        Arg(column = "longitude", javaType = BigDecimal::class),
-        Arg(column = "capacity", javaType = Int::class),
-        Arg(column = "participant_count", javaType = Int::class),
-        Arg(column = "place_name", javaType = String::class),
-        Arg(column = "distance_meters", javaType = Long::class)
-    )
     @Select("""
             SELECT a.id AS activity_id,
                    a.title,
@@ -131,39 +94,6 @@ interface ActivityReadMapper {
         @Param("limit") limit: Int
     ): List<ActivityMapRow>
 
-    @ConstructorArgs(
-        Arg(column = "activity_id", javaType = Long::class, id = true),
-        Arg(column = "status", javaType = Int::class),
-        Arg(column = "title", javaType = String::class),
-        Arg(column = "category_code", javaType = String::class),
-        Arg(column = "cover_file_id", javaType = Long::class),
-        Arg(column = "owner_type", javaType = String::class),
-        Arg(column = "owner_id", javaType = Long::class),
-        Arg(column = "owner_display_name", javaType = String::class),
-        Arg(column = "owner_avatar_file_id", javaType = Long::class),
-        Arg(column = "registration_starts_at", javaType = LocalDateTime::class),
-        Arg(column = "registration_ends_at", javaType = LocalDateTime::class),
-        Arg(column = "starts_at", javaType = LocalDateTime::class),
-        Arg(column = "ends_at", javaType = LocalDateTime::class),
-        Arg(column = "region_code", javaType = String::class),
-        Arg(column = "address_detail", javaType = String::class),
-        Arg(column = "latitude", javaType = BigDecimal::class),
-        Arg(column = "longitude", javaType = BigDecimal::class),
-        Arg(column = "capacity", javaType = Int::class),
-        Arg(column = "participant_count", javaType = Int::class),
-        Arg(column = "description", javaType = String::class),
-        Arg(column = "signup_details", javaType = String::class),
-        Arg(column = "organizer_message", javaType = String::class),
-        Arg(column = "published_at", javaType = LocalDateTime::class),
-        Arg(column = "created_at", javaType = LocalDateTime::class),
-        Arg(column = "updated_at", javaType = LocalDateTime::class),
-        Arg(column = "registration_gender", javaType = Int::class),
-        Arg(column = "organizer_phone_ciphertext", javaType = ByteArray::class),
-        Arg(column = "organizer_wechat_ciphertext", javaType = ByteArray::class),
-        Arg(column = "organizer_wechat_qr_file_id", javaType = Long::class),
-        Arg(column = "refund_policy", javaType = String::class),
-        Arg(column = "place_name", javaType = String::class)
-    )
     @Select("""
             SELECT a.id AS activity_id,
                    a.status,
@@ -199,7 +129,8 @@ interface ActivityReadMapper {
                    NULL AS organizer_wechat_ciphertext,
                    NULL AS organizer_wechat_qr_file_id,
                    NULL AS refund_policy,
-                   a.place_name
+                   a.place_name,
+                   NULL AS distance_meters
               FROM activities a
               LEFT JOIN user_profiles p ON p.user_id=a.owner_user_id
               LEFT JOIN organizations o ON o.id=a.owner_organization_id
@@ -261,40 +192,6 @@ interface ActivityReadMapper {
         cursorStartsAt, cursorActivityId, now, limit
     )
 
-    @ConstructorArgs(
-        Arg(column = "activity_id", javaType = Long::class, id = true),
-        Arg(column = "status", javaType = Int::class),
-        Arg(column = "title", javaType = String::class),
-        Arg(column = "category_code", javaType = String::class),
-        Arg(column = "cover_file_id", javaType = Long::class),
-        Arg(column = "owner_type", javaType = String::class),
-        Arg(column = "owner_id", javaType = Long::class),
-        Arg(column = "owner_display_name", javaType = String::class),
-        Arg(column = "owner_avatar_file_id", javaType = Long::class),
-        Arg(column = "registration_starts_at", javaType = LocalDateTime::class),
-        Arg(column = "registration_ends_at", javaType = LocalDateTime::class),
-        Arg(column = "starts_at", javaType = LocalDateTime::class),
-        Arg(column = "ends_at", javaType = LocalDateTime::class),
-        Arg(column = "region_code", javaType = String::class),
-        Arg(column = "address_detail", javaType = String::class),
-        Arg(column = "latitude", javaType = BigDecimal::class),
-        Arg(column = "longitude", javaType = BigDecimal::class),
-        Arg(column = "capacity", javaType = Int::class),
-        Arg(column = "participant_count", javaType = Int::class),
-        Arg(column = "description", javaType = String::class),
-        Arg(column = "signup_details", javaType = String::class),
-        Arg(column = "organizer_message", javaType = String::class),
-        Arg(column = "published_at", javaType = LocalDateTime::class),
-        Arg(column = "created_at", javaType = LocalDateTime::class),
-        Arg(column = "updated_at", javaType = LocalDateTime::class),
-        Arg(column = "registration_gender", javaType = Int::class),
-        Arg(column = "organizer_phone_ciphertext", javaType = ByteArray::class),
-        Arg(column = "organizer_wechat_ciphertext", javaType = ByteArray::class),
-        Arg(column = "organizer_wechat_qr_file_id", javaType = Long::class),
-        Arg(column = "refund_policy", javaType = String::class),
-        Arg(column = "place_name", javaType = String::class),
-        Arg(column = "distance_meters", javaType = Long::class)
-    )
     @Select("""
             SELECT a.id AS activity_id,
                    a.status,
@@ -462,39 +359,6 @@ interface ActivityReadMapper {
         cursorDistanceMeters, cursorActivityId, now, limit
     )
 
-    @ConstructorArgs(
-        Arg(column = "activity_id", javaType = Long::class, id = true),
-        Arg(column = "status", javaType = Int::class),
-        Arg(column = "title", javaType = String::class),
-        Arg(column = "category_code", javaType = String::class),
-        Arg(column = "cover_file_id", javaType = Long::class),
-        Arg(column = "owner_type", javaType = String::class),
-        Arg(column = "owner_id", javaType = Long::class),
-        Arg(column = "owner_display_name", javaType = String::class),
-        Arg(column = "owner_avatar_file_id", javaType = Long::class),
-        Arg(column = "registration_starts_at", javaType = LocalDateTime::class),
-        Arg(column = "registration_ends_at", javaType = LocalDateTime::class),
-        Arg(column = "starts_at", javaType = LocalDateTime::class),
-        Arg(column = "ends_at", javaType = LocalDateTime::class),
-        Arg(column = "region_code", javaType = String::class),
-        Arg(column = "address_detail", javaType = String::class),
-        Arg(column = "latitude", javaType = BigDecimal::class),
-        Arg(column = "longitude", javaType = BigDecimal::class),
-        Arg(column = "capacity", javaType = Int::class),
-        Arg(column = "participant_count", javaType = Int::class),
-        Arg(column = "description", javaType = String::class),
-        Arg(column = "signup_details", javaType = String::class),
-        Arg(column = "organizer_message", javaType = String::class),
-        Arg(column = "published_at", javaType = LocalDateTime::class),
-        Arg(column = "created_at", javaType = LocalDateTime::class),
-        Arg(column = "updated_at", javaType = LocalDateTime::class),
-        Arg(column = "registration_gender", javaType = Int::class),
-        Arg(column = "organizer_phone_ciphertext", javaType = ByteArray::class),
-        Arg(column = "organizer_wechat_ciphertext", javaType = ByteArray::class),
-        Arg(column = "organizer_wechat_qr_file_id", javaType = Long::class),
-        Arg(column = "refund_policy", javaType = String::class),
-        Arg(column = "place_name", javaType = String::class)
-    )
     @Select("""
             SELECT a.id AS activity_id,
                    a.status,
@@ -539,39 +403,6 @@ interface ActivityReadMapper {
             """)
     fun findPublicById(@Param("activityId") activityId: Long): ActivityPublicRow?
 
-    @ConstructorArgs(
-        Arg(column = "activity_id", javaType = Long::class, id = true),
-        Arg(column = "status", javaType = Int::class),
-        Arg(column = "title", javaType = String::class),
-        Arg(column = "category_code", javaType = String::class),
-        Arg(column = "cover_file_id", javaType = Long::class),
-        Arg(column = "owner_type", javaType = String::class),
-        Arg(column = "owner_id", javaType = Long::class),
-        Arg(column = "owner_display_name", javaType = String::class),
-        Arg(column = "owner_avatar_file_id", javaType = Long::class),
-        Arg(column = "registration_starts_at", javaType = LocalDateTime::class),
-        Arg(column = "registration_ends_at", javaType = LocalDateTime::class),
-        Arg(column = "starts_at", javaType = LocalDateTime::class),
-        Arg(column = "ends_at", javaType = LocalDateTime::class),
-        Arg(column = "region_code", javaType = String::class),
-        Arg(column = "address_detail", javaType = String::class),
-        Arg(column = "latitude", javaType = BigDecimal::class),
-        Arg(column = "longitude", javaType = BigDecimal::class),
-        Arg(column = "capacity", javaType = Int::class),
-        Arg(column = "participant_count", javaType = Int::class),
-        Arg(column = "description", javaType = String::class),
-        Arg(column = "signup_details", javaType = String::class),
-        Arg(column = "organizer_message", javaType = String::class),
-        Arg(column = "published_at", javaType = LocalDateTime::class),
-        Arg(column = "created_at", javaType = LocalDateTime::class),
-        Arg(column = "updated_at", javaType = LocalDateTime::class),
-        Arg(column = "registration_gender", javaType = Int::class),
-        Arg(column = "organizer_phone_ciphertext", javaType = ByteArray::class),
-        Arg(column = "organizer_wechat_ciphertext", javaType = ByteArray::class),
-        Arg(column = "organizer_wechat_qr_file_id", javaType = Long::class),
-        Arg(column = "refund_policy", javaType = String::class),
-        Arg(column = "place_name", javaType = String::class)
-    )
     @Select("""
             <script>
             SELECT a.id AS activity_id,
@@ -624,40 +455,6 @@ interface ActivityReadMapper {
         @Param("activityIds") activityIds: List<Long>
     ): List<ActivityPublicRow>
 
-    @ConstructorArgs(
-        Arg(column = "activity_id", javaType = Long::class, id = true),
-        Arg(column = "status", javaType = Int::class),
-        Arg(column = "title", javaType = String::class),
-        Arg(column = "category_code", javaType = String::class),
-        Arg(column = "cover_file_id", javaType = Long::class),
-        Arg(column = "owner_type", javaType = String::class),
-        Arg(column = "owner_id", javaType = Long::class),
-        Arg(column = "owner_display_name", javaType = String::class),
-        Arg(column = "owner_avatar_file_id", javaType = Long::class),
-        Arg(column = "registration_starts_at", javaType = LocalDateTime::class),
-        Arg(column = "registration_ends_at", javaType = LocalDateTime::class),
-        Arg(column = "starts_at", javaType = LocalDateTime::class),
-        Arg(column = "ends_at", javaType = LocalDateTime::class),
-        Arg(column = "region_code", javaType = String::class),
-        Arg(column = "address_detail", javaType = String::class),
-        Arg(column = "latitude", javaType = BigDecimal::class),
-        Arg(column = "longitude", javaType = BigDecimal::class),
-        Arg(column = "capacity", javaType = Int::class),
-        Arg(column = "participant_count", javaType = Int::class),
-        Arg(column = "description", javaType = String::class),
-        Arg(column = "signup_details", javaType = String::class),
-        Arg(column = "organizer_message", javaType = String::class),
-        Arg(column = "published_at", javaType = LocalDateTime::class),
-        Arg(column = "version", javaType = Int::class),
-        Arg(column = "created_at", javaType = LocalDateTime::class),
-        Arg(column = "updated_at", javaType = LocalDateTime::class),
-        Arg(column = "registration_gender", javaType = Int::class),
-        Arg(column = "organizer_phone_ciphertext", javaType = ByteArray::class),
-        Arg(column = "organizer_wechat_ciphertext", javaType = ByteArray::class),
-        Arg(column = "organizer_wechat_qr_file_id", javaType = Long::class),
-        Arg(column = "refund_policy", javaType = String::class),
-        Arg(column = "place_name", javaType = String::class)
-    )
     @Select("""
             SELECT a.id AS activity_id,
                    a.status,
@@ -713,10 +510,6 @@ interface ActivityReadMapper {
         @Param("activityId") activityId: Long
     ): ActivityManagedDetailRow?
 
-    @ConstructorArgs(
-        Arg(column = "file_id", javaType = Long::class, id = true),
-        Arg(column = "sort_order", javaType = Int::class)
-    )
     @Select("""
             SELECT file_id, sort_order
               FROM activity_media
@@ -725,28 +518,6 @@ interface ActivityReadMapper {
             """)
     fun findPublicMedia(@Param("activityId") activityId: Long): List<ActivityPublicMediaRow>
 
-    @ConstructorArgs(
-        Arg(column = "activity_id", javaType = Long::class, id = true),
-        Arg(column = "status", javaType = Int::class),
-        Arg(column = "title", javaType = String::class),
-        Arg(column = "category_code", javaType = String::class),
-        Arg(column = "cover_file_id", javaType = Long::class),
-        Arg(column = "owner_type", javaType = String::class),
-        Arg(column = "owner_id", javaType = Long::class),
-        Arg(column = "owner_display_name", javaType = String::class),
-        Arg(column = "owner_avatar_file_id", javaType = Long::class),
-        Arg(column = "starts_at", javaType = LocalDateTime::class),
-        Arg(column = "ends_at", javaType = LocalDateTime::class),
-        Arg(column = "region_code", javaType = String::class),
-        Arg(column = "address_detail", javaType = String::class),
-        Arg(column = "latitude", javaType = BigDecimal::class),
-        Arg(column = "longitude", javaType = BigDecimal::class),
-        Arg(column = "capacity", javaType = Int::class),
-        Arg(column = "participant_count", javaType = Int::class),
-        Arg(column = "version", javaType = Int::class),
-        Arg(column = "updated_at", javaType = LocalDateTime::class),
-        Arg(column = "place_name", javaType = String::class)
-    )
     @Select("""
             SELECT a.id AS activity_id,
                    a.status,

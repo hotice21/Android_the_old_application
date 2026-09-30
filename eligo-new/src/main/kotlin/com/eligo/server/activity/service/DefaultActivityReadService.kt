@@ -1,4 +1,4 @@
-﻿package com.eligo.server.activity.service
+package com.eligo.server.activity.service
 
 import com.eligo.server.activity.mapper.ActivityManagedDetailRow
 import com.eligo.server.activity.mapper.ActivityManagedRow
@@ -937,10 +937,11 @@ class DefaultActivityReadService(
     }
 
     private fun encodeNearbyCursor(row: ActivityPublicRow, filterKey: String?): String {
-        if (row.distanceMeters == null || row.distanceMeters < 0) {
+        val distance = row.distanceMeters
+        if (distance == null || distance < 0) {
             throw validation()
         }
-        val raw = "D:" + row.distanceMeters + ":" + row.activityId + ":" + filterKey
+        val raw = "D:" + distance + ":" + row.activityId + ":" + filterKey
         return Base64.getUrlEncoder().withoutPadding()
             .encodeToString(raw.toByteArray(StandardCharsets.UTF_8))
     }

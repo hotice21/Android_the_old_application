@@ -1,28 +1,87 @@
 <script setup>
-import { ref } from "vue"
+import { ref, onMounted, computed } from "vue"
+import { onLoad } from "@dcloudio/uni-app"
 import ActivityCard from "../../components/ActivityCard.vue"
-import { activityFeed, primaryEvent } from "../../mock/events"
+import {
+  getActivityDetail,
+  joinActivity,
+  cancelJoinActivity,
+  getActivityFavoriteStatus,
+  favoriteActivity,
+  unfavoriteActivity,
+  getActivities,
+} from "../../api/activity"
 import { requireLogin } from "../../stores/entry"
 
-const favorite = ref(false)
-const recommendations = [activityFeed[1], activityFeed[2]]
+const activityId = ref(null)
+const detail = ref(null)
+const loading = ref(true)
+const favorited = ref(false)
+const participating = ref(false)
+const joining = ref(false)
+const recommendations = ref([])
 
-const introduction =
-  "谁懂啊！去牛背山爬山还能薅免费奖牌，粉红兔子 IP 款 + 云海星途限定款全都有✨\n\n" +
-  "日常免费粉红兔子奖牌\n" +
-  "活动每天都能冲！直接去牛背山景区扫码打卡，跟着线下指引开启挑战就能领。每日奖牌限量，先到先得。⚠️线下开启挑战赛记得勾选保险哦。\n\n" +
-  "「云海星途」OPPO 限定奖牌领取四步走\n" +
-  "1️⃣ 下单 1 元挑战补给包，走完指定打卡路线\n" +
-  "2️⃣ 上山顶 3666 云社，免费体验 OPPO 旅拍神器，拍雪山云海大片\n" +
-  "3️⃣ 按活动要求发一篇牛背山打卡小红书笔记\n" +
-  "4️⃣ 回到现场核验内容，直接免费抱走限定奖牌\n\n" +
-  "周末去牛背山看云海的姐妹别错过！爬山 + 拍照 + 拿奖牌一站式搞定，风景好看周边还香哭😭\n\n" +
-  "活动须知\n" +
-  "• 请提前 15 分钟到达集合点，领队会统一核对名单并说明当天路线。\n" +
-  "• 山区早晚温差较大，建议携带防风外套、雨具、保温水杯和便携能量食品。\n" +
-  "• 全程请穿防滑运动鞋，遵循领队安排，不单独离队或进入未开放区域。\n" +
-  "• 如遇大雾、强降雨等天气，活动将以安全为先调整路线或时间，并及时通知。\n\n" +
-  "费用包含往返接送、领队服务、午餐及基础活动保险；个人消费和未注明项目需自行承担。"
+onLoad((options) => {
+  if (options?.id) {
+    activityId.value = String(options.id)
+    loadAll()
+  }
+})
+
+async function loadAll() {
+  if (!activityId.value) return
+  loading.value = true
+  try {
+    const [detailRes, favRes, listRes] = await Promise.all([
+      getActivityDetail(activityId.value).catch(() => null),
+      getActivityFavoriteStatus(activityId.value).catch(() => null),
+      getActivities({ limit: 3 }).catch(() => null),
+    ])
+    detail.value = detailRes?.data || null
+    favorited.value = !!favRes?.data?.favorited
+    participating.value = detailRes?.data?.myRegistration != null
+    recommendations.value = (listRes?.data?.items || [])
+      .filter((i) => String(i.activityId) !== activityId.value)
+      .slice(0, 2)
+      .map(mapActivity)
+  } catch (e) {
+    console.error("加载详情失败", e)
+    uni.showToast({ title: "加载失败", icon: "none" })
+  } finally {
+    loading.value = false
+  }
+}
+
+function mapActivity(item) {
+  const startsAt = item.startsAt ? new Date(item.startsAt) : null
+  const weekday = startsAt
+    ? ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][startsAt.getDay()]
+    : ""
+  const hh = startsAt ? String(startsAt.getHours()).padStart(2, "0") : ""
+  const mm = startsAt ? String(startsAt.getMinutes()).padStart(2, "0") : ""
+  return {
+    id: item.activityId,
+    title: item.title,
+    organizer: item.owner?.displayName || "",
+    distance: "待定",
+    registrations: item.participantCount || 0,
+    cardTime: `${hh}:${mm}`,
+    datePrefix: weekday,
+    dateLabel: startsAt ? `${startsAt.getMonth() + 1}/${startsAt.getDate()}` : "",
+  }
+}
+
+/** 格式化时间 */
+const formattedStartsAt = computed(() => {
+  const t = detail.value?.startsAt
+  if (!t) return { time: "--:--", date: "--/--", weekday: "" }
+  const d = new Date(t)
+  return {
+    time: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
+    date: `${d.getMonth() + 1}-${d.getDate()}`,
+    weekday: ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][d.getDay()],
+  }
+})
 
 function goBack() {
   const pages = getCurrentPages()
@@ -38,18 +97,43 @@ function showDemo(name) {
   uni.showToast({ title: `${name}（Demo）`, icon: "none" })
 }
 
-function toggleFavorite() {
+async function toggleFavorite() {
   if (!requireLogin()) return
-  favorite.value = !favorite.value
-  uni.showToast({
-    title: favorite.value ? "已收藏" : "已取消收藏",
-    icon: "none",
-  })
+  try {
+    if (favorited.value) {
+      await unfavoriteActivity(activityId.value)
+      favorited.value = false
+      uni.showToast({ title: "已取消收藏", icon: "none" })
+    } else {
+      await favoriteActivity(activityId.value)
+      favorited.value = true
+      uni.showToast({ title: "已收藏", icon: "none" })
+    }
+  } catch (e) {
+    uni.showToast({ title: "操作失败", icon: "none" })
+  }
 }
 
-function joinEvent() {
+async function joinEvent() {
   if (!requireLogin()) return
-  uni.showToast({ title: "报名成功", icon: "success" })
+  if (joining.value) return
+  joining.value = true
+  try {
+    if (participating.value) {
+      await cancelJoinActivity(activityId.value)
+      participating.value = false
+      uni.showToast({ title: "已取消报名", icon: "none" })
+    } else {
+      await joinActivity(activityId.value)
+      participating.value = true
+      uni.showToast({ title: "报名成功", icon: "success" })
+    }
+  } catch (e) {
+    const msg = e?.data?.message || "操作失败"
+    uni.showToast({ title: msg, icon: "none" })
+  } finally {
+    joining.value = false
+  }
 }
 
 function openRecommendation(item) {
@@ -73,7 +157,7 @@ function openRecommendation(item) {
           </button>
           <button
             class="nav-button nav-button--heart"
-            :class="{ 'nav-button--favorite': favorite }"
+            :class="{ 'nav-button--favorite': favorited }"
             aria-label="收藏"
             @tap="toggleFavorite"
           >
@@ -99,20 +183,22 @@ function openRecommendation(item) {
         <view class="product-panel">
           <view class="price">
             <text class="price__symbol">¥</text>
-            <text class="price__value">{{ primaryEvent.price }}</text>
-            <text class="price__old">¥108</text>
+            <text class="price__value">
+              {{ detail?.feeType === "FREE" ? "免费" : (detail?.feeAmount ?? "--") }}
+            </text>
           </view>
-          <text class="followers">{{ primaryEvent.followers }}人关注</text>
-          <text class="event-title">{{ primaryEvent.title }}</text>
+          <text class="followers">{{ detail?.participantCount ?? 0 }}人已报名</text>
+          <text class="event-title">{{ detail?.title || "加载中..." }}</text>
 
           <view class="tags tags--warm">
-            <text class="tag tag--warm">官方认证</text>
-            <text class="tag tag--warm">补贴团</text>
+            <text class="tag tag--warm">{{ detail?.owner?.ownerType === "ORGANIZATION" ? "主办方认证" : "个人活动" }}</text>
+            <text v-if="detail?.registrationStatus" class="tag tag--warm">
+              {{ detail.registrationStatus === "OPEN" ? "报名中" : "已截止" }}
+            </text>
           </view>
           <view class="tags tags--safe">
-            <text class="tag tag--safe">安心退</text>
-            <text class="tag tag--safe">含午餐</text>
-            <text class="tag tag--safe tag--wide">大巴接送</text>
+            <text class="tag tag--safe">名额 {{ detail?.capacity ?? "--" }}</text>
+            <text v-if="detail?.refundPolicy" class="tag tag--safe">{{ detail.refundPolicy }}</text>
           </view>
         </view>
 
@@ -120,7 +206,7 @@ function openRecommendation(item) {
           <view class="organizer__identity">
             <view class="organizer__avatar" />
             <view class="organizer__verified">✓</view>
-            <text class="organizer__name">Debeme口腔集团&amp;大鹏半岛旅游局</text>
+            <text class="organizer__name">{{ detail?.owner?.displayName || "未知组织者" }}</text>
           </view>
           <button class="organizer__follow" aria-label="关注主办方" @tap="showDemo('关注')">
             <view class="organizer__follow-horizontal" />
@@ -131,12 +217,12 @@ function openRecommendation(item) {
         <view class="schedule">
           <view class="schedule__time">
             <view class="schedule__time-row">
-              <text class="schedule__time-value">15:30</text>
+              <text class="schedule__time-value">{{ formattedStartsAt.time }}</text>
               <text class="schedule__start-label">开始</text>
             </view>
             <view class="schedule__date-row">
-              <text class="schedule__date">07-10</text>
-              <text class="schedule__weekday">周日</text>
+              <text class="schedule__date">{{ formattedStartsAt.date }}</text>
+              <text class="schedule__weekday">{{ formattedStartsAt.weekday }}</text>
             </view>
           </view>
 
@@ -144,11 +230,11 @@ function openRecommendation(item) {
 
           <view class="schedule__weather">
             <view class="schedule__weather-row">
-              <text class="schedule__weather-low">36</text>
+              <text class="schedule__weather-low">容量</text>
               <text class="schedule__slash">/</text>
-              <text class="schedule__temperature">38°C</text>
+              <text class="schedule__temperature">{{ detail?.capacity ?? "--" }}</text>
             </view>
-            <text class="schedule__weather-label">小雨轉晴</text>
+            <text class="schedule__weather-label">已报 {{ detail?.participantCount ?? 0 }} 人</text>
           </view>
 
           <view class="weather-art" aria-hidden="true">
@@ -164,9 +250,13 @@ function openRecommendation(item) {
             <image class="map-card__icon" src="/static/eligo/icons/location.svg" mode="aspectFit" />
             <text class="map-card__title">集合地点</text>
           </view>
-          <text class="map-card__address">{{ primaryEvent.location }}</text>
+          <text class="map-card__address">
+            {{ detail?.placeName ? detail.placeName + " · " : "" }}{{ detail?.addressDetail || "待定" }}
+          </text>
           <view class="map-card__footer">
-            <text class="map-card__distance">距离您 {{ primaryEvent.distance }}　{{ primaryEvent.travelTime }}</text>
+            <text class="map-card__distance">
+              {{ detail?.regionCode ? "地区 " + detail.regionCode : "地区待定" }}
+            </text>
             <view class="map-card__route">
               <text>查看路线</text>
               <text class="map-card__chevron">›</text>
@@ -176,7 +266,9 @@ function openRecommendation(item) {
 
         <view class="introduction">
           <text class="section-title">活动介绍</text>
-          <text class="introduction__copy">{{ introduction }}</text>
+          <text class="introduction__copy">{{ detail?.description || "暂无介绍" }}</text>
+          <text v-if="detail?.signupDetails" class="section-title" style="margin-top:16px">报名须知</text>
+          <text v-if="detail?.signupDetails" class="introduction__copy">{{ detail.signupDetails }}</text>
         </view>
 
         <view class="recommend-heading">
@@ -212,7 +304,14 @@ function openRecommendation(item) {
           <text>电话</text>
         </button>
       </view>
-      <button class="join-button" @tap="joinEvent">立即加入</button>
+      <button
+        class="join-button"
+        :class="{ 'join-button--cancel': participating }"
+        :disabled="joining"
+        @tap="joinEvent"
+      >
+        {{ joining ? "处理中..." : (participating ? "取消报名" : "立即加入") }}
+      </button>
       <view class="home-indicator" />
     </view>
   </view>

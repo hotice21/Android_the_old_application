@@ -1,13 +1,73 @@
 <script setup>
-import { ref } from "vue"
+import { ref, onMounted } from "vue"
 import ActivityCard from "../../components/ActivityCard.vue"
 import BottomNavigation from "../../components/BottomNavigation.vue"
 import DeviceStatus from "../../components/DeviceStatus.vue"
-import { activityFeed, followings } from "../../mock/events"
+import { getActivities } from "../../api/activity"
 import { requireLogin } from "../../stores/entry"
 
 const tabs = ["关注", "推荐", "附近活动", "徒步", "运动"]
-const activeTab = ref("关注")
+const activeTab = ref("推荐")
+const activities = ref([])
+const loading = ref(false)
+const nextCursor = ref(null)
+const hasMore = ref(true)
+
+/** 把 API 活动项映射成 ActivityCard 需要的字段 */
+function mapActivity(item) {
+  const startsAt = item.startsAt ? new Date(item.startsAt) : null
+  const weekday = startsAt
+    ? ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][startsAt.getDay()]
+    : ""
+  const hh = startsAt
+    ? String(startsAt.getHours()).padStart(2, "0")
+    : ""
+  const mm = startsAt
+    ? String(startsAt.getMinutes()).padStart(2, "0")
+    : ""
+
+  return {
+    id: item.activityId,
+    title: item.title,
+    organizer: item.owner?.displayName || "未知组织者",
+    distance: item.distanceMeters != null
+      ? item.distanceMeters >= 1000
+        ? (item.distanceMeters / 1000).toFixed(1) + "km"
+        : item.distanceMeters + "m"
+      : "待定",
+    registrations: item.participantCount || 0,
+    cardTime: `${hh}:${mm}`,
+    datePrefix: weekday,
+    dateLabel: startsAt ? `${startsAt.getMonth() + 1}/${startsAt.getDate()}` : "",
+    placeName: item.placeName || "",
+    addressDetail: item.addressDetail || "",
+    categoryCode: item.categoryCode,
+  }
+}
+
+async function loadActivities(reset = false) {
+  if (loading.value) return
+  if (!reset && !hasMore.value) return
+  loading.value = true
+  try {
+    const params = { limit: 20 }
+    if (!reset && nextCursor.value) params.cursor = nextCursor.value
+    const res = await getActivities(params)
+    const items = (res?.data?.items || []).map(mapActivity)
+    if (reset) {
+      activities.value = items
+    } else {
+      activities.value = [...activities.value, ...items]
+    }
+    nextCursor.value = res?.data?.nextCursor || null
+    hasMore.value = !!res?.data?.hasMore
+  } catch (e) {
+    console.error("加载活动列表失败", e)
+    uni.showToast({ title: "加载失败，请下拉刷新", icon: "none" })
+  } finally {
+    loading.value = false
+  }
+}
 
 function openEvent(item) {
   uni.navigateTo({ url: `/pages/detail/index?id=${item.id}` })
@@ -15,7 +75,7 @@ function openEvent(item) {
 
 function joinEvent(item) {
   if (!requireLogin()) return
-  openEvent(item || activityFeed[0])
+  openEvent(item)
 }
 
 function showDemo(name) {
@@ -25,8 +85,14 @@ function showDemo(name) {
 
 function selectTab(tab) {
   if (!requireLogin()) return
+  if (tab === activeTab.value) return
   activeTab.value = tab
+  loadActivities(true)
 }
+
+onMounted(() => {
+  loadActivities(true)
+})
 </script>
 
 <template>
@@ -82,50 +148,20 @@ function selectTab(tab) {
           <image src="/static/eligo/icons/filter.svg" mode="aspectFit" />
         </button>
       </view>
-
-      <scroll-view class="followings" scroll-x :show-scrollbar="false">
-        <view class="followings__inner">
-          <view
-            v-for="person in followings"
-            :key="person.id"
-            class="following"
-            :class="{ 'following--official': person.official }"
-          >
-            <view
-              class="following__avatar-wrap"
-              :class="{
-                'following__avatar-wrap--official': person.official,
-                'following__avatar-wrap--ring': person.followed,
-              }"
-            >
-              <view v-if="person.official" class="following__official">Eligo</view>
-              <view
-                v-else
-                class="following__avatar following__avatar--placeholder"
-              />
-              <view
-                v-if="!person.followed"
-                class="following__add"
-                :class="{ 'following__add--official': person.official }"
-              >
-                +
-              </view>
-            </view>
-            <text class="following__name">{{ person.name }}</text>
-          </view>
-        </view>
-      </scroll-view>
     </view>
 
-    <scroll-view class="feed" scroll-y :show-scrollbar="false">
+      <scroll-view class="feed" scroll-y :show-scrollbar="false" @scrolltolower="loadActivities">
       <view class="feed__inner">
         <ActivityCard
-          v-for="item in activityFeed"
+          v-for="item in activities"
           :key="item.id"
           :item="item"
           @open="openEvent"
           @join="joinEvent"
         />
+        <view v-if="loading" class="feed__loading">加载中...</view>
+        <view v-else-if="!hasMore && activities.length > 0" class="feed__end">—— 没有更多了 ——</view>
+        <view v-else-if="activities.length === 0" class="feed__empty">暂无活动</view>
       </view>
     </scroll-view>
 
@@ -482,6 +518,16 @@ function selectTab(tab) {
   align-items: center;
   gap: 12px;
   padding: 4px 16px 18px;
+}
+
+.feed__loading,
+.feed__end,
+.feed__empty {
+  width: 100%;
+  padding: 24px;
+  color: #888;
+  font-size: 14px;
+  text-align: center;
 }
 
 @media (min-width: 390px) {
