@@ -25,6 +25,7 @@ class PostEntity {
     var hiddenAt: LocalDateTime? = null
     var deletedAt: LocalDateTime? = null
     var version: Int? = null
+    var likeCount: Int? = null
     var createdAt: LocalDateTime? = null
     var updatedAt: LocalDateTime? = null
 

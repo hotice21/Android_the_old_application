@@ -6,6 +6,7 @@ import com.eligo.server.post.dto.PostDraftCreateRequest
 import com.eligo.server.post.dto.PostDraftReplaceRequest
 import com.eligo.server.post.service.PostCommandService
 import com.eligo.server.post.service.PostCreateOutcome
+import com.eligo.server.post.service.PostLikeService
 import com.eligo.server.post.service.PostReadService
 import com.eligo.server.post.vo.ManagedPostDetailView
 import com.eligo.server.post.vo.ManagedPostSummaryView
@@ -29,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController
 class PostController(
     private val commands: PostCommandService,
     private val reads: PostReadService,
+    private val likes: PostLikeService,
     private val recommendedFeed: RecommendedFeedService
 ) {
 
@@ -146,6 +148,33 @@ class PostController(
         @RequestParam(defaultValue = "20") limit: Int
     ): Result<CursorPage<PublicPostView>> =
         Result.success(recommendedFeed.list(principal, cursor, limit))
+
+    @PostMapping("/api/v1/posts/{postId}/like")
+    fun like(
+        @AuthenticationPrincipal principal: UserPrincipal,
+        @PathVariable postId: Long
+    ): Result<Map<String, Boolean>> {
+        val created = likes.like(principal.userId, postId)
+        return Result.success(mapOf("created" to created))
+    }
+
+    @DeleteMapping("/api/v1/posts/{postId}/like")
+    fun unlike(
+        @AuthenticationPrincipal principal: UserPrincipal,
+        @PathVariable postId: Long
+    ): Result<Void> {
+        likes.unlike(principal.userId, postId)
+        return Result.success()
+    }
+
+    @GetMapping("/api/v1/posts/{postId}/like")
+    fun isLiked(
+        @AuthenticationPrincipal principal: UserPrincipal,
+        @PathVariable postId: Long
+    ): Result<Map<String, Boolean>> {
+        val liked = likes.isLikedByMe(principal.userId, postId)
+        return Result.success(mapOf("liked" to liked))
+    }
 
     private fun created(outcome: PostCreateOutcome): ResponseEntity<Result<ManagedPostDetailView>> =
         ResponseEntity

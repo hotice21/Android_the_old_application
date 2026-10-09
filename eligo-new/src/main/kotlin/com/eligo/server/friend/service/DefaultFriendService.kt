@@ -1,6 +1,6 @@
 package com.eligo.server.friend.service
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper
 import com.eligo.server.common.error.BusinessException
 import com.eligo.server.common.error.CommonErrorCode
 import com.eligo.server.follow.entity.UserFollowEntity
@@ -24,9 +24,9 @@ class DefaultFriendService(
         }
         // 已存在关系，直接返回
         val existing = userFollows.selectOne(
-            LambdaQueryWrapper<UserFollowEntity>()
-                .eq(UserFollowEntity::followerUserId, myUserId)
-                .eq(UserFollowEntity::followedUserId, targetUserId)
+            QueryWrapper<UserFollowEntity>()
+                .eq("follower_user_id", myUserId)
+                .eq("followed_user_id", targetUserId)
         )
         if (existing != null) {
             if (existing.status == UserFollowEntity.STATUS_ACCEPTED) {
@@ -37,10 +37,10 @@ class DefaultFriendService(
         }
         // 反向（对方曾请求过我）且我未处理 → 直接接受对方的请求
         val reverse = userFollows.selectOne(
-            LambdaQueryWrapper<UserFollowEntity>()
-                .eq(UserFollowEntity::followerUserId, targetUserId)
-                .eq(UserFollowEntity::followedUserId, myUserId)
-                .eq(UserFollowEntity::status, UserFollowEntity.STATUS_PENDING)
+            QueryWrapper<UserFollowEntity>()
+                .eq("follower_user_id", targetUserId)
+                .eq("followed_user_id", myUserId)
+                .eq("status", UserFollowEntity.STATUS_PENDING)
         )
         if (reverse != null) {
             // 直接互相成为好友
@@ -89,9 +89,9 @@ class DefaultFriendService(
 
         // 反向（我 follow 对方）若不存在则自动创建
         val reciprocal = userFollows.selectOne(
-            LambdaQueryWrapper<UserFollowEntity>()
-                .eq(UserFollowEntity::followerUserId, myUserId)
-                .eq(UserFollowEntity::followedUserId, request.followerUserId)
+            QueryWrapper<UserFollowEntity>()
+                .eq("follower_user_id", myUserId)
+                .eq("followed_user_id", request.followerUserId)
         )
         if (reciprocal == null) {
             userFollows.insert(
@@ -133,10 +133,10 @@ class DefaultFriendService(
     @Transactional
     override fun cancelFriendRequest(myUserId: Long, requestId: Long) {
         val deleted = userFollows.delete(
-            LambdaQueryWrapper<UserFollowEntity>()
-                .eq(UserFollowEntity::id, requestId)
-                .eq(UserFollowEntity::followerUserId, myUserId)
-                .eq(UserFollowEntity::status, UserFollowEntity.STATUS_PENDING)
+            QueryWrapper<UserFollowEntity>()
+                .eq("id", requestId)
+                .eq("follower_user_id", myUserId)
+                .eq("status", UserFollowEntity.STATUS_PENDING)
         )
         if (deleted <= 0) {
             throw BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND)
@@ -147,48 +147,48 @@ class DefaultFriendService(
     override fun unfriend(myUserId: Long, friendUserId: Long) {
         // 双向删除
         userFollows.delete(
-            LambdaQueryWrapper<UserFollowEntity>()
-                .eq(UserFollowEntity::followerUserId, myUserId)
-                .eq(UserFollowEntity::followedUserId, friendUserId)
-                .eq(UserFollowEntity::status, UserFollowEntity.STATUS_ACCEPTED)
+            QueryWrapper<UserFollowEntity>()
+                .eq("follower_user_id", myUserId)
+                .eq("followed_user_id", friendUserId)
+                .eq("status", UserFollowEntity.STATUS_ACCEPTED)
         )
         userFollows.delete(
-            LambdaQueryWrapper<UserFollowEntity>()
-                .eq(UserFollowEntity::followerUserId, friendUserId)
-                .eq(UserFollowEntity::followedUserId, myUserId)
-                .eq(UserFollowEntity::status, UserFollowEntity.STATUS_ACCEPTED)
+            QueryWrapper<UserFollowEntity>()
+                .eq("follower_user_id", friendUserId)
+                .eq("followed_user_id", myUserId)
+                .eq("status", UserFollowEntity.STATUS_ACCEPTED)
         )
     }
 
     override fun getMyFriends(myUserId: Long): List<UserFollowEntity> {
         return userFollows.selectList(
-            LambdaQueryWrapper<UserFollowEntity>()
-                .eq(UserFollowEntity::followerUserId, myUserId)
-                .eq(UserFollowEntity::status, UserFollowEntity.STATUS_ACCEPTED)
-                .orderByDesc(UserFollowEntity::acceptedAt)
+            QueryWrapper<UserFollowEntity>()
+                .eq("follower_user_id", myUserId)
+                .eq("status", UserFollowEntity.STATUS_ACCEPTED)
+                .orderByDesc("accepted_at")
         )
     }
 
     override fun getPendingRequests(myUserId: Long): List<UserFollowEntity> {
         return userFollows.selectList(
-            LambdaQueryWrapper<UserFollowEntity>()
-                .eq(UserFollowEntity::followedUserId, myUserId)
-                .eq(UserFollowEntity::status, UserFollowEntity.STATUS_PENDING)
-                .orderByDesc(UserFollowEntity::followedAt)
+            QueryWrapper<UserFollowEntity>()
+                .eq("followed_user_id", myUserId)
+                .eq("status", UserFollowEntity.STATUS_PENDING)
+                .orderByDesc("followed_at")
         )
     }
 
     override fun isFriend(myUserId: Long, otherUserId: Long): Boolean {
         // 双向任一为 accepted 即视为好友
         val count = userFollows.selectCount(
-            LambdaQueryWrapper<UserFollowEntity>()
-                .eq(UserFollowEntity::status, UserFollowEntity.STATUS_ACCEPTED)
+            QueryWrapper<UserFollowEntity>()
+                .eq("status", UserFollowEntity.STATUS_ACCEPTED)
                 .and { wrapper ->
-                    wrapper.eq(UserFollowEntity::followerUserId, myUserId)
-                        .eq(UserFollowEntity::followedUserId, otherUserId)
+                    wrapper.eq("follower_user_id", myUserId)
+                        .eq("followed_user_id", otherUserId)
                         .or()
-                        .eq(UserFollowEntity::followerUserId, otherUserId)
-                        .eq(UserFollowEntity::followedUserId, myUserId)
+                        .eq("follower_user_id", otherUserId)
+                        .eq("followed_user_id", myUserId)
                 }
         )
         return count > 0
@@ -202,9 +202,9 @@ class DefaultFriendService(
     ) {
         // 在我 follow 对方的那条记录上设置备注
         val relation = userFollows.selectOne(
-            LambdaQueryWrapper<UserFollowEntity>()
-                .eq(UserFollowEntity::followerUserId, myUserId)
-                .eq(UserFollowEntity::followedUserId, friendUserId)
+            QueryWrapper<UserFollowEntity>()
+                .eq("follower_user_id", myUserId)
+                .eq("followed_user_id", friendUserId)
         )
         if (relation == null) {
             throw BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND)

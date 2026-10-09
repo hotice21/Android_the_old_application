@@ -1,4 +1,4 @@
-﻿package com.eligo.server.comment.service
+package com.eligo.server.comment.service
 
 import com.eligo.server.account.service.AccountStateLockService
 import com.eligo.server.activity.service.ActivityEngagementAccessService
@@ -15,6 +15,7 @@ import com.eligo.server.common.api.CursorPage
 import com.eligo.server.common.error.AccountUserFileErrorCode
 import com.eligo.server.common.error.BusinessException
 import com.eligo.server.common.error.CommonErrorCode
+import com.eligo.server.contentfilter.service.ContentFilterService
 import com.eligo.server.profile.service.ProfileCompletionReader
 import com.eligo.server.security.UserPrincipal
 import java.io.ByteArrayOutputStream
@@ -40,6 +41,7 @@ class DefaultActivityCommentService(
     private val activities: ActivityEngagementAccessService,
     private val completion: ProfileCompletionReader,
     private val accountStates: AccountStateLockService,
+    private val contentFilterService: ContentFilterService,
     private val clock: Clock = Clock.systemUTC()
 ) : ActivityCommentService {
 
@@ -53,7 +55,9 @@ class DefaultActivityCommentService(
         requirePrincipalAndId(principal, activityId)
         validateIdempotencyKey(idempotencyKey)
         val normalized = normalize(request)
-        val requestFingerprint = fingerprint(activityId, normalized.parentCommentId, normalized.content)
+        // 敏感词过滤
+        val filteredContent = contentFilterService.filter(normalized.content).filtered
+        val requestFingerprint = fingerprint(activityId, normalized.parentCommentId, filteredContent)
         val existing = comments.findByIdempotency(principal.userId, idempotencyKey).orElse(null)
         if (existing != null) {
             return replay(existing, requestFingerprint)
@@ -69,7 +73,7 @@ class DefaultActivityCommentService(
         created.authorUserId = principal.userId
         created.parentCommentId = normalized.parentCommentId
         created.status = ActivityCommentEntity.STATUS_ACTIVE
-        created.content = normalized.content
+        created.content = filteredContent
         created.idempotencyKey = idempotencyKey
         created.requestFingerprint = requestFingerprint
         created.createdAt = now()

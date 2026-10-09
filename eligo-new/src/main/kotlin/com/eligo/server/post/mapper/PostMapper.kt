@@ -1,4 +1,4 @@
-﻿package com.eligo.server.post.mapper
+package com.eligo.server.post.mapper
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper
 import com.eligo.server.post.entity.PostEntity
@@ -162,4 +162,17 @@ interface PostMapper : BaseMapper<PostEntity> {
         )
         """)
     fun existsPublicActivityReference(@Param("activityId") activityId: Long): Boolean
+
+    @Update("""
+        UPDATE posts
+        SET like_count = like_count + #{delta},
+            version = version + 1,
+            updated_at = #{now}
+        WHERE id = #{postId}
+        """)
+    fun updateLikeCount(
+        @Param("postId") postId: Long,
+        @Param("delta") delta: Int,
+        @Param("now") now: LocalDateTime
+    ): Int
 }

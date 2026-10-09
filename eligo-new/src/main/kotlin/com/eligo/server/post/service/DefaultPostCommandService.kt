@@ -3,6 +3,7 @@ package com.eligo.server.post.service
 import com.eligo.server.common.error.AccountUserFileErrorCode
 import com.eligo.server.common.error.BusinessException
 import com.eligo.server.common.error.CommonErrorCode
+import com.eligo.server.contentfilter.service.ContentFilterService
 import com.eligo.server.file.entity.FileObjectEntity
 import com.eligo.server.file.mapper.FileObjectMapper
 import com.eligo.server.organization.mapper.OrganizationMapper
@@ -48,6 +49,7 @@ class DefaultPostCommandService(
     private val organizations: OrganizationMapper,
     private val completion: ProfileCompletionReader,
     private val reads: PostReadService,
+    private val contentFilterService: ContentFilterService,
     private val recommendationTasks: RecommendationIndexTaskWriter = RecommendationIndexTaskWriter.noop(),
     private val clock: Clock = Clock.systemUTC()
 ) : PostCommandService {
@@ -365,9 +367,12 @@ class DefaultPostCommandService(
         ) {
             throw validation()
         }
+        // 敏感词过滤：title 和 content 都过 filter（severity=2 会抛 BlockedContentException）
+        val filteredTitle = normalizedTitle?.let { contentFilterService.filter(it).filtered }
+        val filteredContent = normalizedContent?.let { contentFilterService.filter(it).filtered }
         return NormalizedPost(
-            normalizedTitle,
-            normalizedContent,
+            filteredTitle,
+            filteredContent,
             normalizedVisibility,
             activityId,
             normalizedMedia.filterNotNull()

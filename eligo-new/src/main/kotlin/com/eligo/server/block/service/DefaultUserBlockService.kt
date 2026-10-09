@@ -1,6 +1,6 @@
 package com.eligo.server.block.service
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper
 import com.eligo.server.block.entity.UserBlockEntity
 import com.eligo.server.block.mapper.UserBlockMapper
 import com.eligo.server.common.error.BusinessException
@@ -23,15 +23,12 @@ class DefaultUserBlockService(
         if (myUserId == targetUserId) {
             throw BusinessException(CommonErrorCode.VALIDATION_FAILED)
         }
-        // 已存在则直接返回
         val existing = userBlocks.selectOne(
-            LambdaQueryWrapper<UserBlockEntity>()
-                .eq(UserBlockEntity::blockerUserId, myUserId)
-                .eq(UserBlockEntity::blockedUserId, targetUserId)
+            QueryWrapper<UserBlockEntity>()
+                .eq("blocker_user_id", myUserId)
+                .eq("blocked_user_id", targetUserId)
         )
-        if (existing != null) {
-            return existing
-        }
+        if (existing != null) return existing
         val entity = UserBlockEntity().apply {
             this.blockerUserId = myUserId
             this.blockedUserId = targetUserId
@@ -45,35 +42,33 @@ class DefaultUserBlockService(
     @Transactional
     override fun unblockUser(myUserId: Long, targetUserId: Long) {
         userBlocks.delete(
-            LambdaQueryWrapper<UserBlockEntity>()
-                .eq(UserBlockEntity::blockerUserId, myUserId)
-                .eq(UserBlockEntity::blockedUserId, targetUserId)
+            QueryWrapper<UserBlockEntity>()
+                .eq("blocker_user_id", myUserId)
+                .eq("blocked_user_id", targetUserId)
         )
     }
 
     override fun isBlockedByUser(myUserId: Long, targetUserId: Long): Boolean {
-        // targetUserId 是否拉黑了我
         return userBlocks.selectCount(
-            LambdaQueryWrapper<UserBlockEntity>()
-                .eq(UserBlockEntity::blockerUserId, targetUserId)
-                .eq(UserBlockEntity::blockedUserId, myUserId)
+            QueryWrapper<UserBlockEntity>()
+                .eq("blocker_user_id", targetUserId)
+                .eq("blocked_user_id", myUserId)
         ) > 0
     }
 
     override fun isBlockingUser(myUserId: Long, targetUserId: Long): Boolean {
-        // 我是否拉黑了 targetUserId
         return userBlocks.selectCount(
-            LambdaQueryWrapper<UserBlockEntity>()
-                .eq(UserBlockEntity::blockerUserId, myUserId)
-                .eq(UserBlockEntity::blockedUserId, targetUserId)
+            QueryWrapper<UserBlockEntity>()
+                .eq("blocker_user_id", myUserId)
+                .eq("blocked_user_id", targetUserId)
         ) > 0
     }
 
     override fun getMyBlockedList(myUserId: Long): List<UserBlockEntity> {
         return userBlocks.selectList(
-            LambdaQueryWrapper<UserBlockEntity>()
-                .eq(UserBlockEntity::blockerUserId, myUserId)
-                .orderByDesc(UserBlockEntity::blockedAt)
+            QueryWrapper<UserBlockEntity>()
+                .eq("blocker_user_id", myUserId)
+                .orderByDesc("blocked_at")
         )
     }
 }

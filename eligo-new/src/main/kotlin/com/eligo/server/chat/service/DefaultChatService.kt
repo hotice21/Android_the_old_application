@@ -10,6 +10,7 @@ import com.eligo.server.chat.mapper.ChatMessageMapper
 import com.eligo.server.common.api.CursorPage
 import com.eligo.server.common.error.BusinessException
 import com.eligo.server.common.error.CommonErrorCode
+import com.eligo.server.contentfilter.service.ContentFilterService
 import com.eligo.server.friend.service.FriendService
 import java.time.LocalDateTime
 import org.springframework.stereotype.Service
@@ -20,7 +21,8 @@ class DefaultChatService(
     private val conversations: ChatConversationMapper,
     private val messages: ChatMessageMapper,
     private val friendService: FriendService,
-    private val blockService: UserBlockService
+    private val blockService: UserBlockService,
+    private val contentFilterService: ContentFilterService
 ) : ChatService {
 
     override fun getOrCreateConversation(
@@ -111,16 +113,27 @@ class DefaultChatService(
         }
 
         val now = LocalDateTime.now()
+        // messageType=1 为文本消息，进行敏感词过滤
+        val filteredContent = when (request.messageType) {
+            1 -> {
+                if (!request.content.isNullOrBlank()) {
+                    contentFilterService.filter(request.content).filtered
+                } else {
+                    request.content
+                }
+            }
+            else -> request.content
+        }
         val preview = when (request.messageType) {
-            1 -> request.content?.take(200)
+            1 -> filteredContent?.take(200)
             2 -> "[图片]"
             3 -> "[语音]"
-            else -> request.content?.take(200)
+            else -> filteredContent?.take(200)
         }
         val message = ChatMessageEntity().apply {
             this.conversationId = conversation.id
             this.senderUserId = myUserId
-            this.content = request.content
+            this.content = filteredContent
             this.messageType = request.messageType
             this.fileId = request.fileId
             this.voiceFileId = request.voiceFileId

@@ -6,6 +6,8 @@ import com.eligo.server.common.error.BusinessException
 import com.eligo.server.common.error.CommonErrorCode
 import com.eligo.server.common.error.ErrorCode
 import com.eligo.server.common.error.FieldValidationError
+import com.eligo.server.contentfilter.BlockedContentException
+import org.springframework.http.HttpStatus
 import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
@@ -136,6 +138,17 @@ class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException::class)
     fun handleBusinessException(exception: BusinessException): ResponseEntity<Result<Void>> =
         response(exception.errorCode, exception.message ?: exception.errorCode.message, null)
+
+    @ExceptionHandler(BlockedContentException::class)
+    fun handleBlockedContent(e: BlockedContentException): ResponseEntity<Result<Map<String, Any>>> {
+        val data: Map<String, Any> = mapOf(
+            "reason" to "BLOCKED_CONTENT",
+            "hits" to e.hits
+        )
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(Result.failure(40001, "内容包含敏感词", data))
+    }
 
     @ExceptionHandler(Exception::class)
     fun handleUnexpectedException(exception: Exception): ResponseEntity<Result<Void>> {
