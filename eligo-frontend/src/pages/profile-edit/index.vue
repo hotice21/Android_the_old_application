@@ -4,9 +4,7 @@ import { bindPhone } from "../../api/account"
 import { downloadOwnedFile, uploadImage } from "../../api/file"
 import { getMyProfile, updateMyProfile, updateAvatar, updateNickname, updateInterests, getInterestTags } from "../../api/profile"
 import { formatApiError } from "../../api/request"
-import { PROFILE_MOCK_ENABLED } from "../../config/runtime"
 import { getProfile, saveProfile } from "../../stores/session"
-import { mockProfile, mockInterestTags } from "../../mock/profile"
 
 const loading = ref(false)
 const saving = ref(false)
@@ -64,14 +62,6 @@ async function loadPageData() {
   profileReady.value = false
   allTags.value = []
 
-  if (PROFILE_MOCK_ENABLED) {
-    await applyProfile(mockProfile)
-    allTags.value = mockInterestTags
-    profileReady.value = true
-    loading.value = false
-    return
-  }
-
   const cachedProfile = getProfile()
   if (cachedProfile) {
     await applyProfile(cachedProfile)
@@ -88,6 +78,7 @@ async function loadPageData() {
       errors.push("后端未返回个人资料")
     }
   } catch (error) {
+    console.error("加载profile失败", error)
     errors.push(formatApiError(error))
   }
 
@@ -97,7 +88,8 @@ async function loadPageData() {
       allTags.value = tags.items
     }
   } catch (error) {
-    errors.push(formatApiError(error))
+    // interest_tags 可能已被后端删除，此错误不阻塞主流程
+    console.warn("加载兴趣标签失败（可忽略）", error)
   }
 
   loadError.value = errors.filter(Boolean).join("\n")
@@ -243,10 +235,6 @@ function showPhoneAuthorizationFailure(errMsg) {
 
 async function onGetPhoneNumber(e) {
   if (bindingPhone.value) return
-  if (PROFILE_MOCK_ENABLED) {
-    uni.showToast({ title: "演示模式不会绑定手机号", icon: "none" })
-    return
-  }
   if (!profileReady.value) {
     uni.showToast({ title: "资料尚未加载，请重试", icon: "none" })
     return
@@ -453,10 +441,6 @@ function showProfileSaveFailure(context, error) {
 
 function onSave() {
   if (saving.value || loading.value) return
-  if (PROFILE_MOCK_ENABLED) {
-    uni.showToast({ title: "演示模式不会提交资料", icon: "none" })
-    return
-  }
   if (!profileReady.value) {
     uni.showToast({ title: "资料尚未加载，请重试", icon: "none" })
     return
@@ -524,18 +508,14 @@ function formatTime(isoStr) {
       <text class="edit-profile__nav-title">编辑资料</text>
       <view
         class="edit-profile__nav-save"
-        :class="{ 'edit-profile__nav-save--disabled': saving || loading || !profileReady || PROFILE_MOCK_ENABLED }"
+        :class="{ 'edit-profile__nav-save--disabled': saving || loading || !profileReady }"
         @click.stop="onSave"
       >
         <text class="edit-profile__nav-save-text">{{ saving ? '保存中...' : '保存' }}</text>
       </view>
     </view>
 
-    <view v-if="PROFILE_MOCK_ENABLED" class="edit-profile__notice edit-profile__notice--demo">
-      <text>当前为资料演示模式，所有操作均不会提交到后端。</text>
-    </view>
-
-    <view v-else-if="loadError" class="edit-profile__notice edit-profile__notice--error">
+    <view v-if="loadError" class="edit-profile__notice edit-profile__notice--error">
       <text class="edit-profile__notice-text">{{ loadError }}</text>
       <button class="edit-profile__retry" :disabled="loading" @tap="loadPageData">重新加载</button>
     </view>

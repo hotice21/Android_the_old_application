@@ -90,11 +90,11 @@ function onPlusTap() {
   top: 46px;
   left: 50%;
   width: 60px;
-  height: 20px;
+  height: 22px;
   color: #888888;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
-  line-height: 20px;
+  line-height: 22px;
   text-align: center;
   transform: translateX(-50%);
 }

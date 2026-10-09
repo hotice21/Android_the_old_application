@@ -1,12 +1,13 @@
 <script setup>
 import { onMounted, ref } from "vue"
-import { activityFeed } from "../../mock/events"
+import { getActivities } from "../../api/activity"
 
 const searchQuery = ref("")
 const activeFilter = ref("")
 const filters = ["夏日徒步", "运动", "博物馆", "搭子团"]
 const activities = ref([])
 const loading = ref(false)
+const loadError = ref(false)
 
 const markers = ref([])
 const latitude = ref(22.5431)
@@ -26,19 +27,55 @@ function buildMarkers(list) {
     }))
 }
 
+function extractItems(data) {
+  if (!data) return []
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data.items)) return data.items
+  if (Array.isArray(data.list)) return data.list
+  return []
+}
+
+function normalizeActivity(a) {
+  // 后端字段可能是 activityId / name / startTime / venue / locationPoint 等，
+  // 统一映射为模板消费的字段；缺失的经纬度做增量偏移兜底。
+  return {
+    id: a.activityId || a.id,
+    title: a.name || a.title || "未命名活动",
+    date: a.startTime || a.date || "",
+    dateLabel: a.dateLabel || "",
+    location: a.venue || a.location || a.address || "",
+    price: a.price != null ? a.price : null,
+    rating: a.rating != null ? a.rating : null,
+    latitude:
+      a.locationPoint?.latitude ?? a.latitude ?? a.lat ?? null,
+    longitude:
+      a.locationPoint?.longitude ?? a.longitude ?? a.lng ?? null,
+  }
+}
+
 async function fetchActivities() {
   loading.value = true
+  loadError.value = false
   try {
-    // M2 活动模块未实现，直接使用 mock 数据
-    const mockData = activityFeed.map((item, i) => ({
-      ...item,
-      latitude: 22.5431 + (i * 0.005),
-      longitude: 114.0579 + (i * 0.003),
-      rating: 4.8,
-      price: i % 2 === 0 ? 56 : null,
-    }))
-    activities.value = mockData
-    markers.value = buildMarkers(mockData)
+    const raw = await getActivities({ limit: 50 })
+    const items = extractItems(raw).map(normalizeActivity)
+
+    // 兜底：若无经纬度则用中心点做增量偏移
+    items.forEach((item, i) => {
+      if (!item.latitude || !item.longitude) {
+        item.latitude = 22.5431 + i * 0.005
+        item.longitude = 114.0579 + i * 0.003
+      }
+    })
+
+    activities.value = items
+    markers.value = buildMarkers(items)
+  } catch (e) {
+    console.error("加载活动列表失败", e)
+    loadError.value = true
+    uni.showToast({ title: "地图加载失败", icon: "none" })
+    activities.value = []
+    markers.value = []
   } finally {
     loading.value = false
   }

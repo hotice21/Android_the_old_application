@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref } from "vue"
 import BottomNavigation from "../../components/BottomNavigation.vue"
-import { mockDynamics } from "../../mock/dynamic"
+import { getDynamics, toggleDynamicLike } from "../../api/dynamic"
 
 const tabs = ["推荐", "关注"]
 const activeTab = ref("推荐")
@@ -9,11 +9,41 @@ const dynamics = ref([])
 const loading = ref(false)
 const refreshing = ref(false)
 
+function extractItems(data) {
+  if (!data) return []
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data.items)) return data.items
+  if (Array.isArray(data.list)) return data.list
+  return []
+}
+
+function normalizeDynamic(d) {
+  const user = d.author || d.user || {}
+  return {
+    id: d.dynamicId || d.id,
+    content: d.content || d.text || "",
+    images: Array.isArray(d.images) ? d.images : [],
+    time: d.timeLabel || d.createdAt || "",
+    isLiked: Boolean(d.liked || d.isLiked),
+    likes: d.likeCount ?? d.likes ?? 0,
+    comments: d.commentCount ?? d.comments ?? 0,
+    user: {
+      name: user.nickname || user.name || "用户",
+      isOfficial: Boolean(user.verified || user.isOfficial),
+    },
+  }
+}
+
 async function fetchDynamics(reset = false) {
   loading.value = true
   try {
-    // M4 模块未实现，直接使用 mock 数据
-    dynamics.value = mockDynamics
+    const type = activeTab.value === "关注" ? "following" : "recommend"
+    const raw = await getDynamics({ pageSize: 20, type })
+    dynamics.value = extractItems(raw).map(normalizeDynamic)
+  } catch (e) {
+    console.error("加载动态失败", e)
+    uni.showToast({ title: "加载失败", icon: "none" })
+    dynamics.value = []
   } finally {
     loading.value = false
   }
@@ -31,9 +61,19 @@ function onTabChange(tab) {
 }
 
 async function onLike(item) {
-  item.isLiked = !item.isLiked
+  const previousLiked = item.isLiked
+  const previousLikes = item.likes
+  item.isLiked = !previousLiked
   item.likes += item.isLiked ? 1 : -1
-  // M4 模块未实现，仅本地状态切换
+  try {
+    await toggleDynamicLike(item.id)
+  } catch (e) {
+    console.error("点赞失败", e)
+    // 回滚本地状态
+    item.isLiked = previousLiked
+    item.likes = previousLikes
+    uni.showToast({ title: "操作失败", icon: "none" })
+  }
 }
 
 function onComment(item) {

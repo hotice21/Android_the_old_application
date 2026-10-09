@@ -134,8 +134,8 @@ const emit = defineEmits(["open", "join"])
 
 .date-badge__large {
   color: #ffffff;
-  font-size: 24px;
-  line-height: 28px;
+  font-size: 26px;
+  line-height: 30px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -150,8 +150,8 @@ const emit = defineEmits(["open", "join"])
 .date-badge__meta,
 .date-badge__label {
   color: #ffffff;
-  font-size: 13px;
-  line-height: 16px;
+  font-size: 15px;
+  line-height: 18px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -166,22 +166,22 @@ const emit = defineEmits(["open", "join"])
 }
 
 .photo-tags__free {
-  padding: 8px 14px;
+  padding: 10px 16px;
   color: #f56551;
   background: #ffffff;
   border-radius: 10px;
-  font-size: 13px;
-  line-height: 16px;
+  font-size: 15px;
+  line-height: 18px;
   font-weight: 700;
 }
 
 .photo-tags__distance {
-  padding: 8px 14px;
+  padding: 10px 16px;
   color: #ffffff;
   background: rgba(0, 0, 0, 0.7);
   border-radius: 10px;
-  font-size: 13px;
-  line-height: 16px;
+  font-size: 15px;
+  line-height: 18px;
   font-weight: 600;
 }
 
@@ -215,14 +215,14 @@ const emit = defineEmits(["open", "join"])
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border: 2px solid #ffffff;
   border-radius: 50%;
   color: #ffffff;
   background: #f56551;
-  font-size: 12px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 16px;
   font-weight: 700;
 }
 
@@ -230,8 +230,8 @@ const emit = defineEmits(["open", "join"])
   margin-left: 14px;
   overflow: hidden;
   color: #2b2f36;
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 17px;
+  line-height: 22px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -241,8 +241,8 @@ const emit = defineEmits(["open", "join"])
   display: -webkit-box;
   overflow: hidden;
   color: #1a1d21;
-  font-size: 24px;
-  line-height: 32px;
+  font-size: 26px;
+  line-height: 34px;
   font-weight: 700;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -256,9 +256,11 @@ const emit = defineEmits(["open", "join"])
 
 .activity-card__place-text {
   color: #2b2f36;
-  font-size: 18px;
-  line-height: 24px;
+  font-size: 19px;
+  line-height: 25px;
   font-weight: 500;
+  max-width: 0;
+  flex: 1;
 }
 
 .activity-card__chevron {
@@ -304,8 +306,8 @@ const emit = defineEmits(["open", "join"])
 .joined__text {
   margin-left: 14px;
   color: #2b2f36;
-  font-size: 13px;
-  line-height: 18px;
+  font-size: 15px;
+  line-height: 20px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -315,15 +317,15 @@ const emit = defineEmits(["open", "join"])
   align-items: center;
   justify-content: center;
   min-width: 120px;
-  min-height: 56px;
-  padding: 0 28px;
+  min-height: 60px;
+  padding: 0 32px;
   border: none;
   border-radius: 16px;
   color: #ffffff;
   background: linear-gradient(140deg, #f56551 0%, #ffb149 100%);
   font-family: "PingFang SC", sans-serif;
-  font-size: 18px;
-  line-height: 24px;
+  font-size: 19px;
+  line-height: 25px;
   font-weight: 700;
   flex-shrink: 0;
 }

@@ -5,8 +5,6 @@ import BottomNavigation from "../../components/BottomNavigation.vue"
 import { downloadOwnedFile } from "../../api/file"
 import { getMyProfile } from "../../api/profile"
 import { formatApiError } from "../../api/request"
-import { PROFILE_MOCK_ENABLED } from "../../config/runtime"
-import { mockProfile } from "../../mock/profile"
 import { getProfile, saveProfile } from "../../stores/session"
 
 const tabs = ["动态", "活动"]
@@ -39,12 +37,6 @@ const menuItems = [
 async function fetchProfile() {
   loading.value = true
   loadError.value = ""
-  if (PROFILE_MOCK_ENABLED) {
-    profile.value = mockProfile
-    await refreshAvatar(mockProfile)
-    loading.value = false
-    return
-  }
 
   await loadLocalProfile()
   try {
@@ -55,7 +47,9 @@ async function fetchProfile() {
       await refreshAvatar(data)
     }
   } catch (error) {
+    console.error("加载profile失败", error)
     loadError.value = formatApiError(error)
+    uni.showToast({ title: "加载失败", icon: "none" })
   } finally {
     loading.value = false
   }
@@ -125,8 +119,7 @@ onShow(() => {
 
 <template>
   <view class="mine">
-    <view v-if="PROFILE_MOCK_ENABLED" class="mine__data-notice">资料演示模式</view>
-    <view v-else-if="loadError" class="mine__data-notice mine__data-notice--error" @tap="fetchProfile">
+    <view v-if="loadError" class="mine__data-notice mine__data-notice--error" @tap="fetchProfile">
       资料加载失败，点击重试
     </view>
     <!-- 顶部个人信息区域 -->

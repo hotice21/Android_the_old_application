@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref } from "vue"
 import BottomNavigation from "../../components/BottomNavigation.vue"
-import { mockNotifications, mockFollowings, mockFollowers } from "../../mock/friend"
+import { getMyFollowings, getMyFollowers } from "../../api/friend"
 
 const tabs = ["系统通知", "关注", "粉丝"]
 const activeTab = ref("系统通知")
@@ -9,16 +9,58 @@ const followings = ref([])
 const followers = ref([])
 const loading = ref(false)
 
-const notifications = ref(mockNotifications)
+// 后端暂无通知 API，保持空数组渲染空态
+const notifications = ref([])
+
+function extractItems(data) {
+  if (!data) return []
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data.items)) return data.items
+  if (Array.isArray(data.list)) return data.list
+  return []
+}
+
+function mapFollowingUser(u) {
+  return {
+    id: u.userId || u.id,
+    name: u.nickname || u.name || "用户",
+    isOfficial: Boolean(u.verified || u.isOfficial),
+  }
+}
+
+function mapFollowerUser(u) {
+  return {
+    id: u.userId || u.id,
+    name: u.nickname || u.name || "用户",
+  }
+}
 
 async function fetchFollowings() {
-  // M4 模块未实现，直接使用 mock 数据
-  followings.value = mockFollowings
+  loading.value = true
+  try {
+    const data = await getMyFollowings({ pageSize: 50 })
+    followings.value = extractItems(data).map(mapFollowingUser)
+  } catch (e) {
+    console.error("加载关注列表失败", e)
+    uni.showToast({ title: "加载失败", icon: "none" })
+    followings.value = []
+  } finally {
+    loading.value = false
+  }
 }
 
 async function fetchFollowers() {
-  // M4 模块未实现，直接使用 mock 数据
-  followers.value = mockFollowers
+  loading.value = true
+  try {
+    const data = await getMyFollowers({ pageSize: 50 })
+    followers.value = extractItems(data).map(mapFollowerUser)
+  } catch (e) {
+    console.error("加载粉丝列表失败", e)
+    uni.showToast({ title: "加载失败", icon: "none" })
+    followers.value = []
+  } finally {
+    loading.value = false
+  }
 }
 
 function onTabChange(tab) {
