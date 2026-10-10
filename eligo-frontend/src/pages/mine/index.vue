@@ -44,12 +44,9 @@ function logout() {
     content: "确定要退出登录吗？",
     success(res) {
       if (res.confirm) {
-        // 清除本地会话
-        try {
-          const { clearSession } = require("../../stores/session")
-          clearSession()
-        } catch {}
-        uni.reLaunch({ url: "/pages/login/index" })
+        uni.removeStorageSync("eligo.access-token")
+        uni.removeStorageSync("eligo.entry-guide-seen.v1")
+        uni.reLaunch({ url: "/pages/onboarding/index" })
       }
     },
   })

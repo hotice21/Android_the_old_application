@@ -1,6 +1,6 @@
 package com.eligo.server.chat.service
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper
 import com.eligo.server.block.service.UserBlockService
 import com.eligo.server.chat.dto.SendMessageRequest
 import com.eligo.server.chat.entity.ChatConversationEntity
@@ -31,9 +31,9 @@ class DefaultChatService(
     ): ChatConversationEntity {
         val (userA, userB) = orderIds(myUserId, otherUserId)
         val existing = conversations.selectOne(
-            LambdaQueryWrapper<ChatConversationEntity>()
-                .eq(ChatConversationEntity::userAId, userA)
-                .eq(ChatConversationEntity::userBId, userB)
+            QueryWrapper<ChatConversationEntity>()
+                .eq("user_a_id", userA)
+                .eq("user_b_id", userB)
         )
         if (existing != null) return existing
 
@@ -52,11 +52,11 @@ class DefaultChatService(
 
     override fun getMyConversations(myUserId: Long): List<ChatConversationEntity> {
         return conversations.selectList(
-            LambdaQueryWrapper<ChatConversationEntity>()
-                .eq(ChatConversationEntity::userAId, myUserId)
+            QueryWrapper<ChatConversationEntity>()
+                .eq("user_a_id", myUserId)
                 .or()
-                .eq(ChatConversationEntity::userBId, myUserId)
-                .orderByDesc(ChatConversationEntity::updatedAt)
+                .eq("user_b_id", myUserId)
+                .orderByDesc("updated_at")
         )
     }
 
@@ -70,15 +70,15 @@ class DefaultChatService(
         val query = if (cursor != null) {
             val cursorId = cursor.toLongOrNull()
                 ?: throw BusinessException(CommonErrorCode.VALIDATION_FAILED)
-            LambdaQueryWrapper<ChatMessageEntity>()
-                .eq(ChatMessageEntity::conversationId, conversation.id!!)
-                .lt(ChatMessageEntity::id, cursorId)
-                .orderByDesc(ChatMessageEntity::id)
+            QueryWrapper<ChatMessageEntity>()
+                .eq("conversation_id", conversation.id!!)
+                .lt("id", cursorId)
+                .orderByDesc("id")
                 .last("LIMIT ${limit + 1}")
         } else {
-            LambdaQueryWrapper<ChatMessageEntity>()
-                .eq(ChatMessageEntity::conversationId, conversation.id!!)
-                .orderByDesc(ChatMessageEntity::id)
+            QueryWrapper<ChatMessageEntity>()
+                .eq("conversation_id", conversation.id!!)
+                .orderByDesc("id")
                 .last("LIMIT ${limit + 1}")
         }
         val rows = messages.selectList(query)

@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref } from "vue"
 import BottomNavigation from "../../components/BottomNavigation.vue"
-import { getDynamics, toggleDynamicLike } from "../../api/dynamic"
+import { getRecommendedFeed, getFollowingFeed, toggleDynamicLike } from "../../api/dynamic"
 
 const tabs = ["推荐", "关注"]
 const activeTab = ref("推荐")
@@ -18,17 +18,17 @@ function extractItems(data) {
 }
 
 function normalizeDynamic(d) {
-  const user = d.author || d.user || {}
+  const user = d.author || {}
   return {
-    id: d.dynamicId || d.id,
+    id: d.postId || d.dynamicId || d.id,
     content: d.content || d.text || "",
-    images: Array.isArray(d.images) ? d.images : [],
-    time: d.timeLabel || d.createdAt || "",
+    images: Array.isArray(d.media) ? d.media : [],
+    time: d.publishedAt || d.timeLabel || d.createdAt || "",
     isLiked: Boolean(d.liked || d.isLiked),
     likes: d.likeCount ?? d.likes ?? 0,
     comments: d.commentCount ?? d.comments ?? 0,
     user: {
-      name: user.nickname || user.name || "用户",
+      name: user.nickname || user.displayName || user.name || "用户",
       isOfficial: Boolean(user.verified || user.isOfficial),
     },
   }
@@ -37,8 +37,9 @@ function normalizeDynamic(d) {
 async function fetchDynamics(reset = false) {
   loading.value = true
   try {
-    const type = activeTab.value === "关注" ? "following" : "recommend"
-    const raw = await getDynamics({ pageSize: 20, type })
+    const raw = activeTab.value === "关注"
+      ? await getFollowingFeed({ limit: 20 })
+      : await getRecommendedFeed({ limit: 20 })
     dynamics.value = extractItems(raw).map(normalizeDynamic)
   } catch (e) {
     console.error("加载动态失败", e)
@@ -63,10 +64,10 @@ function onTabChange(tab) {
 async function onLike(item) {
   const previousLiked = item.isLiked
   const previousLikes = item.likes
-  item.isLiked = !previousLiked
-  item.likes += item.isLiked ? 1 : -1
   try {
-    await toggleDynamicLike(item.id)
+    const newLiked = await toggleDynamicLike(item.id)
+    item.isLiked = newLiked
+    item.likes = (item.likes || 0) + (newLiked ? 1 : -1)
   } catch (e) {
     console.error("点赞失败", e)
     // 回滚本地状态

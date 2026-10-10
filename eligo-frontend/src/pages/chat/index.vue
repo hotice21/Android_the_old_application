@@ -1,29 +1,55 @@
 <script setup>
 import { ref, onMounted } from "@dcloudio/uni-app"
 import BottomNavigation from "../../components/BottomNavigation.vue"
+import { getMyConversations } from "../../api/chat"
+import { getMyProfile } from "../../api/profile"
 
 const conversations = ref([])
 const loading = ref(true)
+const profile = ref(null)
+
+function formatTime(iso) {
+  if (!iso) return ""
+  const d = new Date(iso)
+  const now = new Date()
+  const diffMin = (now - d) / 60000
+  if (diffMin < 1) return "刚刚"
+  if (diffMin < 60) return Math.floor(diffMin) + "分钟前"
+  const diffHr = diffMin / 60
+  if (diffHr < 24) return Math.floor(diffHr) + "小时前"
+  const diffDay = diffHr / 24
+  if (diffDay < 7) return Math.floor(diffDay) + "天前"
+  return (d.getMonth()+1) + "/" + d.getDate()
+}
 
 onMounted(async () => {
   loading.value = true
   try {
-    // 后端已有 4 个会话 seed，先直接 mock 显示
-    conversations.value = [
-      { id: 1, peerName: "南山阿杰", lastMessage: "周末一起去吧", unreadCount: 1, lastAt: "刚刚" },
-      { id: 2, peerName: "宝安小丽", lastMessage: "莲花山我熟到时带路", unreadCount: 0, lastAt: "1小时前" },
-      { id: 3, peerName: "龙华大壮", lastMessage: "篮球差一个人", unreadCount: 1, lastAt: "2小时前" },
-      { id: 4, peerName: "南山阿杰", lastMessage: "咖啡局来不来", unreadCount: 0, lastAt: "昨天" },
-    ]
+    profile.value = await getMyProfile()
+    const raw = await getMyConversations()
+    const myId = Number(profile.value?.userId)
+    conversations.value = (raw || []).map(c => {
+      const peerId = c.userAId === myId ? c.userBId : c.userAId
+      return {
+        id: c.id,
+        peerId,
+        // 后端暂时没返回对方昵称，用占位，后续接好友列表映射
+        peerName: "用户" + peerId,
+        lastMessage: c.lastMessagePreview || "",
+        lastAt: formatTime(c.lastMessageAt),
+        unreadCount: c.userAId === myId ? (c.userAUnreadCount || 0) : (c.userBUnreadCount || 0),
+      }
+    }).sort((a, b) => (b.unreadCount || 0) - (a.unreadCount || 0))
   } catch (e) {
-    console.error(e)
+    console.error("加载会话失败", e)
+    uni.showToast({ title: "加载失败", icon: "none" })
   } finally {
     loading.value = false
   }
 })
 
 function onConversationTap(id) {
-  uni.showToast({ title: "聊天功能开发中", icon: "none" })
+  uni.showToast({ title: "聊天详情开发中", icon: "none" })
 }
 </script>
 

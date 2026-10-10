@@ -3,14 +3,9 @@ import { ref, onMounted } from "vue"
 import ActivityCard from "../../components/ActivityCard.vue"
 import BottomNavigation from "../../components/BottomNavigation.vue"
 import { getActivities } from "../../api/activity"
-import { requireLogin } from "../../stores/entry"
 
-const tabs = ["推荐", "徒步", "运动"]
-const activeTab = ref("推荐")
 const activities = ref([])
 const loading = ref(false)
-const nextCursor = ref(null)
-const hasMore = ref(true)
 
 /** 把 API 活动项映射成 ActivityCard 需要的字段 */
 function mapActivity(item) {
@@ -44,26 +39,14 @@ function mapActivity(item) {
   }
 }
 
-async function loadActivities(reset = false) {
-  if (loading.value) return
-  if (!reset && !hasMore.value) return
+async function loadActivities() {
   loading.value = true
   try {
-    const params = { limit: 20 }
-    if (!reset && nextCursor.value) params.cursor = nextCursor.value
-    const res = await getActivities(params)
-    // request.js unwrap 已经返回 body.data，所以 res 直接是 {items, nextCursor, hasMore}
-    const items = (res?.items || []).map(mapActivity)
-    if (reset) {
-      activities.value = items
-    } else {
-      activities.value = [...activities.value, ...items]
-    }
-    nextCursor.value = res?.nextCursor || null
-    hasMore.value = !!res?.hasMore
+    const res = await getActivities({ limit: 20 })
+    activities.value = (res?.items || []).map(mapActivity)
   } catch (e) {
     console.error("加载活动列表失败", e)
-    uni.showToast({ title: "加载失败，请下拉刷新", icon: "none" })
+    uni.showToast({ title: "加载失败", icon: "none" })
   } finally {
     loading.value = false
   }
@@ -74,24 +57,11 @@ function openEvent(item) {
 }
 
 function joinEvent(item) {
-  if (!requireLogin()) return
   openEvent(item)
 }
 
-function showDemo(name) {
-  if (!requireLogin()) return
-  uni.showToast({ title: `${name}（开发中）`, icon: "none" })
-}
-
-function selectTab(tab) {
-  if (!requireLogin()) return
-  if (tab === activeTab.value) return
-  activeTab.value = tab
-  loadActivities(true)
-}
-
 onMounted(() => {
-  loadActivities(true)
+  loadActivities()
 })
 </script>
 
@@ -101,25 +71,9 @@ onMounted(() => {
       <view class="plaza__title-row">
         <text class="plaza__title">活动广场</text>
       </view>
-
-      <view class="tabs-row">
-        <scroll-view class="tabs" scroll-x :show-scrollbar="false">
-          <view class="tabs__inner">
-            <button
-              v-for="tab in tabs"
-              :key="tab"
-              class="tab"
-              :class="{ 'tab--active': activeTab === tab }"
-              @tap="selectTab(tab)"
-            >
-              <text>{{ tab }}</text>
-            </button>
-          </view>
-        </scroll-view>
-      </view>
     </view>
 
-    <scroll-view class="feed" scroll-y :show-scrollbar="false" @scrolltolower="loadActivities">
+    <scroll-view class="feed" scroll-y :show-scrollbar="false">
       <view class="feed__inner">
         <ActivityCard
           v-for="item in activities"
@@ -129,7 +83,6 @@ onMounted(() => {
           @join="joinEvent"
         />
         <view v-if="loading" class="feed__loading">加载中...</view>
-        <view v-else-if="!hasMore && activities.length > 0" class="feed__end">—— 没有更多了 ——</view>
         <view v-else-if="activities.length === 0" class="feed__empty">暂无活动</view>
       </view>
     </scroll-view>
@@ -170,55 +123,6 @@ onMounted(() => {
   color: #111111;
 }
 
-.tabs-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.tabs {
-  flex: 1 1 auto;
-  height: 44px;
-  white-space: nowrap;
-  overflow: visible;
-}
-
-.tabs__inner {
-  display: flex;
-  align-items: center;
-  height: 44px;
-}
-
-.tab {
-  position: relative;
-  flex: 0 0 auto;
-  min-height: 44px;
-  margin-right: 28px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: visible;
-  border: 0;
-  border-radius: 0;
-  color: #666666;
-  background: transparent;
-  box-shadow: none;
-  font-size: 18px;
-  line-height: 1;
-  font-weight: 400;
-}
-
-.tab::after {
-  border: 0;
-}
-
-.tab--active {
-  color: #111111;
-  font-size: 22px;
-  font-weight: 700;
-}
-
 .feed {
   flex: 1 1 auto;
   padding-bottom: 90px;
@@ -233,7 +137,6 @@ onMounted(() => {
 }
 
 .feed__loading,
-.feed__end,
 .feed__empty {
   width: 100%;
   padding: 24px;
