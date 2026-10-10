@@ -32,15 +32,21 @@ async function loadAll() {
   if (!activityId.value) return
   loading.value = true
   try {
+    // request.js 的 unwrap 已经返回 body.data，所以这些直接就是后端 Result.data
     const [detailRes, favRes, listRes] = await Promise.all([
       getActivityDetail(activityId.value).catch(() => null),
       getActivityFavoriteStatus(activityId.value).catch(() => null),
       getActivities({ limit: 3 }).catch(() => null),
     ])
-    detail.value = detailRes?.data || null
-    favorited.value = !!favRes?.data?.favorited
-    participating.value = detailRes?.data?.myRegistration != null
-    recommendations.value = (listRes?.data?.items || [])
+    // detailRes 直接就是详情对象：{activityId, title, owner, startsAt, endsAt, description, participantCount, capacity, placeName, registrationStatus, categoryCode}
+    detail.value = detailRes || null
+    // favRes 直接就是 {favorited: boolean}
+    favorited.value = !!favRes?.favorited
+    // detail 里没有 myRegistration 字段，我们用 registrationStatus 判断
+    participating.value = detail?.participationStatus === "JOINED"
+      || detail?.registrationStatus === "JOINED"
+    // listRes 就是 {items, nextCursor, hasMore}
+    recommendations.value = (listRes?.items || [])
       .filter((i) => String(i.activityId) !== activityId.value)
       .slice(0, 2)
       .map(mapActivity)
@@ -94,7 +100,7 @@ function goBack() {
 
 function showDemo(name) {
   if (!requireLogin()) return
-  uni.showToast({ title: `${name}（Demo）`, icon: "none" })
+  uni.showToast({ title: `${name}（开发中）`, icon: "none" })
 }
 
 async function toggleFavorite() {
@@ -129,7 +135,8 @@ async function joinEvent() {
       uni.showToast({ title: "报名成功", icon: "success" })
     }
   } catch (e) {
-    const msg = e?.data?.message || "操作失败"
+    // e 是 ApiError，直接取 message
+    const msg = e?.message || "操作失败"
     uni.showToast({ title: msg, icon: "none" })
   } finally {
     joining.value = false
@@ -150,10 +157,10 @@ function openRecommendation(item) {
           <view class="hero__top-shade" />
 
           <button class="nav-button nav-button--back" aria-label="返回" @tap="goBack">
-            <image src="/static/eligo/icons/arrow-left.svg" mode="aspectFit" />
+            <text class="nav-button__icon">‹</text>
           </button>
           <button class="nav-button nav-button--share" aria-label="分享" @tap="showDemo('分享')">
-            <image src="/static/eligo/icons/share.svg" mode="aspectFit" />
+            <text class="nav-button__icon">↗</text>
           </button>
           <button
             class="nav-button nav-button--heart"
@@ -161,7 +168,7 @@ function openRecommendation(item) {
             aria-label="收藏"
             @tap="toggleFavorite"
           >
-            <image src="/static/eligo/icons/heart.svg" mode="aspectFit" />
+            <text class="nav-button__icon">{{ favorited ? '❤️' : '🤍' }}</text>
           </button>
 
           <view class="hero__dots" aria-hidden="true">
@@ -170,24 +177,7 @@ function openRecommendation(item) {
           </view>
         </view>
 
-        <view class="subsidy">
-          <view class="subsidy__accent" />
-          <view class="subsidy__flare" />
-          <image
-            class="subsidy__copy"
-            src="/static/eligo/subsidy-label.svg"
-            mode="scaleToFill"
-          />
-        </view>
-
         <view class="product-panel">
-          <view class="price">
-            <text class="price__symbol">¥</text>
-            <text class="price__value">
-              {{ detail?.feeType === "FREE" ? "免费" : (detail?.feeAmount ?? "--") }}
-            </text>
-          </view>
-          <text class="followers">{{ detail?.participantCount ?? 0 }}人已报名</text>
           <text class="event-title">{{ detail?.title || "加载中..." }}</text>
 
           <view class="tags tags--warm">
@@ -198,19 +188,19 @@ function openRecommendation(item) {
           </view>
           <view class="tags tags--safe">
             <text class="tag tag--safe">名额 {{ detail?.capacity ?? "--" }}</text>
-            <text v-if="detail?.refundPolicy" class="tag tag--safe">{{ detail.refundPolicy }}</text>
+            <text class="tag tag--safe">已报 {{ detail?.participantCount ?? 0 }} 人</text>
           </view>
         </view>
 
         <view class="organizer">
           <view class="organizer__identity">
-            <view class="organizer__avatar" />
-            <view class="organizer__verified">✓</view>
+            <view class="organizer__avatar">
+              <text class="organizer__avatar-text">{{ (detail?.owner?.displayName || '?').charAt(0) }}</text>
+            </view>
             <text class="organizer__name">{{ detail?.owner?.displayName || "未知组织者" }}</text>
           </view>
           <button class="organizer__follow" aria-label="关注主办方" @tap="showDemo('关注')">
-            <view class="organizer__follow-horizontal" />
-            <view class="organizer__follow-vertical" />
+            <text class="organizer__follow-icon">+</text>
           </button>
         </view>
 
@@ -236,32 +226,16 @@ function openRecommendation(item) {
             </view>
             <text class="schedule__weather-label">已报 {{ detail?.participantCount ?? 0 }} 人</text>
           </view>
-
-          <view class="weather-art" aria-hidden="true">
-            <view class="weather-art__sun" />
-            <view class="weather-art__cloud" />
-            <view class="weather-art__rain weather-art__rain--one" />
-            <view class="weather-art__rain weather-art__rain--two" />
-          </view>
         </view>
 
-        <view class="map-card" @tap="showDemo('查看路线')">
+        <view class="map-card">
           <view class="map-card__header">
-            <image class="map-card__icon" src="/static/eligo/icons/location.svg" mode="aspectFit" />
+            <text class="map-card__icon">📍</text>
             <text class="map-card__title">集合地点</text>
           </view>
           <text class="map-card__address">
             {{ detail?.placeName ? detail.placeName + " · " : "" }}{{ detail?.addressDetail || "待定" }}
           </text>
-          <view class="map-card__footer">
-            <text class="map-card__distance">
-              {{ detail?.regionCode ? "地区 " + detail.regionCode : "地区待定" }}
-            </text>
-            <view class="map-card__route">
-              <text>查看路线</text>
-              <text class="map-card__chevron">›</text>
-            </view>
-          </view>
         </view>
 
         <view class="introduction">
@@ -290,20 +264,14 @@ function openRecommendation(item) {
     </scroll-view>
 
     <view class="action-bar">
-      <view class="action-bar__tools">
-        <button class="action" @tap="showDemo('关注')">
-          <image src="/static/eligo/icons/heart.svg" mode="aspectFit" />
-          <text>关注</text>
-        </button>
-        <button class="action" @tap="showDemo('发动态')">
-          <image src="/static/eligo/icons/share.svg" mode="aspectFit" />
-          <text>发动态</text>
-        </button>
-        <button class="action" @tap="showDemo('电话')">
-          <image src="/static/eligo/icons/call.svg" mode="aspectFit" />
-          <text>电话</text>
-        </button>
-      </view>
+      <button class="action" @tap="toggleFavorite">
+        <text class="action__icon">{{ favorited ? '❤️' : '🤍' }}</text>
+        <text class="action__label">收藏</text>
+      </button>
+      <button class="action" @tap="showDemo('联系主办方')">
+        <text class="action__icon">💬</text>
+        <text class="action__label">联系</text>
+      </button>
       <button
         class="join-button"
         :class="{ 'join-button--cancel': participating }"
@@ -312,7 +280,6 @@ function openRecommendation(item) {
       >
         {{ joining ? "处理中..." : (participating ? "取消报名" : "立即加入") }}
       </button>
-      <view class="home-indicator" />
     </view>
   </view>
 </template>
@@ -336,7 +303,7 @@ function openRecommendation(item) {
   padding: 0 0 130px;
 }
 
-/* ---------- Hero (gradient placeholder) ---------- */
+/* ---------- Hero ---------- */
 .hero {
   position: relative;
   width: 100%;
@@ -365,28 +332,24 @@ function openRecommendation(item) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   padding: 0;
-  border-radius: 14px;
-  background: rgba(0, 0, 0, 0.42);
-}
-
-.nav-button::after,
-.organizer__follow::after,
-.action::after,
-.join-button::after {
   border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.42);
+  color: #ffffff;
+  line-height: 1;
 }
 
-.nav-button image {
-  width: 26px;
-  height: 26px;
-  filter: invert(1);
+.nav-button::after { border: 0; }
+
+.nav-button__icon {
+  font-size: 20px;
 }
 
 .nav-button--back { left: 16px; }
-.nav-button--share { right: 80px; }
+.nav-button--share { right: 64px; }
 .nav-button--heart { right: 16px; }
 .nav-button--favorite { background: rgba(245, 101, 81, 0.92); }
 
@@ -413,101 +376,21 @@ function openRecommendation(item) {
   background: #ffffff;
 }
 
-/* ---------- Subsidy (gradient + label, watermark removed) ---------- */
-.subsidy {
-  position: relative;
-  margin: -28px 16px 16px;
-  height: 100px;
-  overflow: hidden;
-  border-radius: 20px;
-  background: linear-gradient(140deg, #ff355a, #fe5f3d);
-}
-
-.subsidy__accent {
-  position: absolute;
-  top: -20px;
-  left: -20px;
-  width: 90px;
-  height: 48px;
-  border-radius: 50%;
-  background: #ffec6f;
-  transform: rotate(-12deg);
-}
-
-.subsidy__flare {
-  position: absolute;
-  top: 8px;
-  right: 25px;
-  width: 37px;
-  height: 51px;
-  border-radius: 50% 50% 42% 58%;
-  background: linear-gradient(145deg, #ffb149, rgba(255, 177, 73, 0));
-  transform: rotate(18deg);
-}
-
-.subsidy__copy {
-  position: absolute;
-  top: 22px;
-  left: 20px;
-  width: 220px;
-  height: 26px;
-}
-
-/* ---------- Product panel (price + title + tags) ---------- */
+/* ---------- Product panel ---------- */
 .product-panel {
-  margin: 0 16px 16px;
+  margin: -32px 16px 16px;
   padding: 20px 16px;
   background: #ffffff;
   border-radius: 12px;
-}
-
-.price {
-  display: flex;
-  align-items: flex-end;
-  color: #e5482d;
-}
-
-.price__symbol {
-  font-family: "PingFang SC", sans-serif;
-  font-size: 20px;
-  line-height: 20px;
-  font-weight: 400;
-  margin-bottom: 2px;
-}
-
-.price__value {
-  margin-left: 3px;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 28px;
-  line-height: 28px;
-  font-weight: 600;
-}
-
-.price__old {
-  margin: 0 0 2px 8px;
-  color: #888888;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 16px;
-  line-height: 16px;
-  text-decoration: line-through;
-}
-
-.followers {
-  display: block;
-  margin-top: 8px;
-  color: #4a4a4a;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 16px;
-  line-height: 18px;
+  position: relative;
+  z-index: 2;
 }
 
 .event-title {
   display: block;
-  margin-top: 12px;
   color: #1a1a1a;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 26px;
-  line-height: 36px;
+  font-size: 22px;
+  line-height: 30px;
   font-weight: 600;
 }
 
@@ -521,12 +404,11 @@ function openRecommendation(item) {
 
 .tag {
   box-sizing: border-box;
-  padding: 5px 12px;
+  padding: 4px 10px;
   border: 1px solid;
   border-radius: 6px;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 15px;
-  line-height: 18px;
+  font-size: 13px;
+  line-height: 16px;
   white-space: nowrap;
 }
 
@@ -542,21 +424,18 @@ function openRecommendation(item) {
   background: #e1f6e7;
 }
 
-.tag--wide { min-width: 76px; text-align: center; }
-
 /* ---------- Organizer ---------- */
 .organizer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin: 0 16px 16px;
-  padding: 16px;
+  padding: 14px 16px;
   border-radius: 12px;
   background: #ffffff;
 }
 
 .organizer__identity {
-  position: relative;
   display: flex;
   align-items: center;
   min-width: 0;
@@ -566,69 +445,50 @@ function openRecommendation(item) {
 .organizer__avatar {
   width: 40px;
   height: 40px;
-  border: 2px solid #ffffff;
   border-radius: 50%;
   background: linear-gradient(140deg, #f56551, #ffb149);
   flex-shrink: 0;
-}
-
-.organizer__verified {
-  position: absolute;
-  top: 26px;
-  left: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  border: 2px solid #ffffff;
-  border-radius: 50%;
+}
+
+.organizer__avatar-text {
   color: #ffffff;
-  background: #2ba471;
-  font-size: 10px;
-  line-height: 12px;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .organizer__name {
   flex: 1;
-  margin-left: 14px;
+  margin-left: 12px;
   overflow: hidden;
   color: #1f1f1f;
-  font-family: "PingFang SC", sans-serif;
   font-size: 16px;
-  line-height: 22px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .organizer__follow {
-  position: relative;
-  display: block;
-  box-sizing: border-box;
-  width: 28px;
-  height: 28px;
-  padding: 0;
+  width: 32px;
+  height: 32px;
   border: 0;
   border-radius: 50%;
   background: #ff5a3c;
   flex-shrink: 0;
-  margin-left: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
-.organizer__follow-horizontal,
-.organizer__follow-vertical {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 16px;
-  height: 3px;
-  border-radius: 2px;
-  background: #ffffff;
-  transform: translate(-50%, -50%);
-}
+.organizer__follow::after { border: 0; }
 
-.organizer__follow-vertical {
-  transform: translate(-50%, -50%) rotate(90deg);
+.organizer__follow-icon {
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 1;
 }
 
 /* ---------- Schedule ---------- */
@@ -655,9 +515,7 @@ function openRecommendation(item) {
 
 .schedule__time-value {
   color: #1a1a1a;
-  font-family: "PingFang SC", sans-serif;
   font-size: 28px;
-  line-height: 30px;
   font-weight: 700;
   letter-spacing: -0.6px;
   white-space: nowrap;
@@ -665,9 +523,7 @@ function openRecommendation(item) {
 
 .schedule__start-label {
   color: #1a1a1a;
-  font-family: "PingFang SC", sans-serif;
   font-size: 16px;
-  line-height: 18px;
   font-weight: 600;
 }
 
@@ -680,10 +536,7 @@ function openRecommendation(item) {
 .schedule__date,
 .schedule__weekday {
   color: #4a4a4a;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 16px;
-  line-height: 16px;
-  font-weight: 400;
+  font-size: 15px;
 }
 
 .schedule__divider {
@@ -708,76 +561,27 @@ function openRecommendation(item) {
 
 .schedule__weather-low {
   color: #1a1a1a;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 24px;
-  line-height: 26px;
+  font-size: 22px;
   font-weight: 700;
 }
 
 .schedule__slash,
 .schedule__temperature {
   color: #1a1a1a;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 16px;
-  line-height: 18px;
+  font-size: 15px;
   font-weight: 700;
 }
 
 .schedule__weather-label {
-  margin-top: 8px;
+  margin-top: 6px;
   color: #4a4a4a;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 16px;
-  line-height: 16px;
-  font-weight: 400;
+  font-size: 14px;
 }
 
-.weather-art {
-  position: relative;
-  margin-left: auto;
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-}
-
-.weather-art__sun {
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #ffbd34;
-}
-
-.weather-art__cloud {
-  position: absolute;
-  top: 16px;
-  left: 3px;
-  width: 36px;
-  height: 20px;
-  border-radius: 12px;
-  background: linear-gradient(140deg, #ffffff, #d9e5ff);
-  box-shadow: 0 2px 5px rgba(80, 104, 156, 0.18);
-}
-
-.weather-art__rain {
-  position: absolute;
-  bottom: 2px;
-  width: 3px;
-  height: 8px;
-  border-radius: 2px;
-  background: #58b7ff;
-  transform: rotate(15deg);
-}
-
-.weather-art__rain--one { left: 14px; }
-.weather-art__rain--two { left: 28px; }
-
-/* ---------- Map card (simplified) ---------- */
+/* ---------- Map card ---------- */
 .map-card {
   margin: 0 16px 16px;
-  padding: 20px;
+  padding: 18px 20px;
   border-radius: 12px;
   background: #ffffff;
 }
@@ -789,65 +593,28 @@ function openRecommendation(item) {
 }
 
 .map-card__icon {
-  width: 28px;
-  height: 28px;
+  font-size: 20px;
 }
 
 .map-card__title {
   color: #1a1a1a;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 20px;
-  line-height: 24px;
+  font-size: 18px;
   font-weight: 600;
 }
 
 .map-card__address {
   display: block;
-  margin-top: 14px;
+  margin-top: 12px;
   color: #1f1f1f;
-  font-family: "PingFang SC", sans-serif;
   font-size: 16px;
   line-height: 24px;
   font-weight: 500;
 }
 
-.map-card__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 18px;
-  padding: 14px 18px;
-  border-radius: 14px;
-  background: #f2f4f8;
-}
-
-.map-card__distance {
-  color: #4a4a4a;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 16px;
-  line-height: 18px;
-}
-
-.map-card__route {
-  display: flex;
-  align-items: center;
-  color: #d9402a;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 16px;
-  line-height: 18px;
-  font-weight: 600;
-}
-
-.map-card__chevron {
-  margin-left: 4px;
-  font-size: 22px;
-  line-height: 22px;
-}
-
 /* ---------- Introduction ---------- */
 .introduction {
   margin: 0 16px 16px;
-  padding: 20px 16px;
+  padding: 18px 16px;
   border-radius: 12px;
   background: #ffffff;
 }
@@ -855,20 +622,16 @@ function openRecommendation(item) {
 .section-title {
   display: block;
   color: #1a1a1a;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 20px;
-  line-height: 24px;
+  font-size: 18px;
   font-weight: 600;
 }
 
 .introduction__copy {
   display: block;
-  margin-top: 16px;
+  margin-top: 12px;
   color: #1f1f1f;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 18px;
-  line-height: 30px;
-  font-weight: 400;
+  font-size: 16px;
+  line-height: 26px;
   white-space: pre-line;
 }
 
@@ -877,15 +640,13 @@ function openRecommendation(item) {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 28px 16px 16px;
+  margin: 24px 16px 12px;
   gap: 14px;
 }
 
 .recommend-heading text {
   color: #d9402a;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 20px;
-  line-height: 24px;
+  font-size: 18px;
   font-weight: 600;
   text-align: center;
 }
@@ -912,62 +673,57 @@ function openRecommendation(item) {
   left: 0;
   display: flex;
   align-items: center;
-  height: 110px;
-  padding: 0 20px;
+  height: 70px;
+  padding: 0 16px;
   background: #ffffff;
   box-shadow: 0 -3px 12px rgba(35, 42, 51, 0.08);
+  padding-bottom: 16px;
 }
 
-.action-bar__tools {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+.action-bar::after { border: 0; }
 
 .action {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 56px;
+  width: 50px;
+  height: 50px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
-  color: #1f1f1f;
   background: transparent;
-  font-family: "PingFang SC", sans-serif;
-  font-size: 15px;
-  line-height: 15px;
 }
 
-.action image {
-  width: 26px;
-  height: 26px;
-  margin-bottom: 6px;
+.action::after { border: 0; }
+
+.action__icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.action__label {
+  font-size: 11px;
+  color: #666666;
+  margin-top: 2px;
 }
 
 .join-button {
   flex: 1;
-  margin-left: 16px;
-  height: 60px;
-  border-radius: 30px;
+  margin-left: 12px;
+  height: 48px;
+  border-radius: 24px;
+  border: 0;
   color: #ffffff;
   background: linear-gradient(140deg, #f56551, #ffb149);
-  font-family: "PingFang SC", sans-serif;
-  font-size: 20px;
-  line-height: 60px;
+  font-size: 17px;
   font-weight: 600;
+  line-height: 48px;
 }
 
-.home-indicator {
-  position: absolute;
-  bottom: 8px;
-  left: 50%;
-  width: 134px;
-  height: 5px;
-  border-radius: 3px;
-  background: #1a1a1a;
-  transform: translateX(-50%);
+.join-button--cancel {
+  background: #e3e6ea;
+  color: #666666;
 }
+
+.join-button::after { border: 0; }
 </style>

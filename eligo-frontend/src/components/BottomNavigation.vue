@@ -11,12 +11,13 @@ const props = defineProps({
   },
 })
 
+// 4 个 tab + 中间凸起的发布按钮
+// glyph 对应页面传入的 current prop
 const items = [
-  { label: "广场", icon: "/static/eligo/icons/tab-plaza-inactive.svg", activeIcon: "/static/eligo/icons/tab-plaza.svg", glyph: "plaza", page: "/pages/plaza/index" },
-  { label: "发现", icon: "/static/eligo/icons/tab-discover.svg", activeIcon: "/static/eligo/icons/tab-discover-active.svg", glyph: "discover", page: "/pages/dynamic/index" },
-  { label: "", icon: "", activeIcon: "", glyph: "", page: "" },
-  { label: "动态", icon: "/static/eligo/icons/tab-feed.svg", activeIcon: "/static/eligo/icons/tab-feed-active.svg", glyph: "feed", page: "/pages/friend/index" },
-  { label: "我的", icon: "/static/eligo/icons/tab-profile.svg", activeIcon: "/static/eligo/icons/tab-profile-active.svg", glyph: "profile", page: "/pages/mine/index" },
+  { label: "活动", glyph: "plaza", page: "/pages/plaza/index" },
+  { label: "聊天", glyph: "chat", page: "" },
+  // 中间留空给 plus button
+  { label: "我的", glyph: "profile", page: "/pages/mine/index" },
 ]
 
 function onTabTap(item) {
@@ -24,6 +25,8 @@ function onTabTap(item) {
   if (!requireLogin()) return
   if (item.page) {
     uni.reLaunch({ url: item.page })
+  } else {
+    uni.showToast({ title: `${item.label}功能开发中`, icon: "none" })
   }
 }
 
@@ -35,26 +38,47 @@ function onPlusTap() {
 
 <template>
   <view class="bottom-nav">
+    <!-- 左：活动 -->
     <view
-      v-for="item in items"
-      :key="item.label || 'plus'"
       class="bottom-nav__item"
-      :class="{ 'bottom-nav__item--active': item.glyph === current }"
-      @tap="onTabTap(item)"
+      :class="{ 'bottom-nav__item--active': props.current === 'plaza' }"
+      @tap="onTabTap(items[0])"
     >
-      <template v-if="item.glyph">
-        <image
-          class="bottom-nav__icon"
-          :class="[`bottom-nav__icon--${item.glyph}`, { 'bottom-nav__icon--active': item.glyph === current }]"
-          :src="item.glyph === current ? item.activeIcon : item.icon"
-          mode="aspectFit"
-        />
-        <text>{{ item.label }}</text>
-      </template>
+      <text class="bottom-nav__emoji">{{ props.current === 'plaza' ? '🎯' : '🎯' }}</text>
+      <text class="bottom-nav__label">活动</text>
     </view>
-    <button class="bottom-nav__plus" aria-label="发布活动或动态" @tap="onPlusTap">
-      <image src="/static/eligo/icons/add.svg" mode="aspectFit" />
-    </button>
+
+    <!-- 中左：聊天 -->
+    <view
+      class="bottom-nav__item"
+      :class="{ 'bottom-nav__item--active': props.current === 'chat' }"
+      @tap="onTabTap(items[1])"
+    >
+      <text class="bottom-nav__emoji">{{ props.current === 'chat' ? '💬' : '💭' }}</text>
+      <text class="bottom-nav__label">聊天</text>
+    </view>
+
+    <!-- 中间：发布按钮（凸起） -->
+    <view class="bottom-nav__center">
+      <button class="bottom-nav__plus" aria-label="发布活动或动态" @tap="onPlusTap">
+        <text class="bottom-nav__plus-icon">+</text>
+      </button>
+      <text class="bottom-nav__center-label">发帖</text>
+    </view>
+
+    <!-- 中右：占位（让 plus 居中） -->
+    <view class="bottom-nav__placeholder" />
+
+    <!-- 右：我的 -->
+    <view
+      class="bottom-nav__item bottom-nav__item--right"
+      :class="{ 'bottom-nav__item--active': props.current === 'profile' }"
+      @tap="onTabTap(items[2])"
+    >
+      <text class="bottom-nav__emoji">{{ props.current === 'profile' ? '👤' : '👤' }}</text>
+      <text class="bottom-nav__label">我的</text>
+    </view>
+
     <view class="home-indicator" />
   </view>
 </template>
@@ -67,6 +91,7 @@ function onPlusTap() {
   bottom: 0;
   left: 0;
   display: flex;
+  align-items: flex-end;
   box-sizing: border-box;
   height: 100px;
   padding: 8px 0 0;
@@ -79,67 +104,80 @@ function onPlusTap() {
   flex: 1 1 0;
   min-width: 60px;
   height: 80px;
-  padding: 8px 6px;
-  color: #888888;
-  font-size: 16px;
-  line-height: 16px;
+  padding: 12px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #999999;
+  transition: color 0.2s;
 }
 
-.bottom-nav__item text {
-  position: absolute;
-  top: 46px;
-  left: 50%;
-  width: 60px;
-  height: 22px;
-  color: #888888;
-  font-size: 17px;
-  font-weight: 700;
-  line-height: 22px;
-  text-align: center;
-  transform: translateX(-50%);
+.bottom-nav__item--active {
+  color: #f56551;
 }
 
-.bottom-nav__item--active text {
-  color: #111111;
+.bottom-nav__emoji {
+  font-size: 26px;
+  line-height: 26px;
+  margin-bottom: 4px;
 }
 
-.bottom-nav__icon {
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  width: 32px;
-  height: 32px;
-  transform: translateX(-50%);
+.bottom-nav__label {
+  font-size: 13px;
+  font-weight: 500;
 }
 
-.bottom-nav__icon--active {
-  /* 选中态：直接用 active SVG，无需 filter */
+.bottom-nav__center {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 60px;
+  height: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.bottom-nav__icon--discover {
-  width: 33.77px;
-  height: 32.49px;
+.bottom-nav__placeholder {
+  flex: 1 1 0;
+  min-width: 60px;
+  height: 80px;
 }
 
 .bottom-nav__plus {
   position: absolute;
-  top: -14px;
+  top: -16px;
   left: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 56px;
   height: 56px;
-  border-radius: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
   background: linear-gradient(140deg, #f56551, #ffb149);
   box-shadow: 0 8px 18px rgba(245, 101, 81, 0.3);
   transform: translateX(-50%);
+  box-sizing: border-box;
 }
 
-.bottom-nav__plus image {
-  width: 21px;
-  height: 21px;
-  filter: invert(1);
+.bottom-nav__plus::after {
+  border: 0;
+}
+
+.bottom-nav__plus-icon {
+  font-size: 32px;
+  color: #ffffff;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.bottom-nav__center-label {
+  position: absolute;
+  bottom: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #999999;
 }
 
 .home-indicator {
