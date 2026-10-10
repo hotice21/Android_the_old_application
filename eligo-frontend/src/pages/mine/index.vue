@@ -31,11 +31,19 @@ function editProfile() {
 }
 
 function openFriends() {
-  uni.navigateTo({ url: "/pages/friend/index" })
+  uni.navigateTo({ url: "/pages/mine/friends/index" })
 }
 
-function showComingSoon(name) {
-  uni.showToast({ title: `${name}功能开发中`, icon: "none" })
+function openParticipations() {
+  uni.navigateTo({ url: "/pages/mine/participations/index" })
+}
+
+function openFavorites() {
+  uni.navigateTo({ url: "/pages/mine/favorites/index" })
+}
+
+function openAccountSettings() {
+  uni.navigateTo({ url: "/pages/mine/account-settings/index" })
 }
 
 function logout() {
@@ -83,13 +91,13 @@ onShow(() => {
 
     <!-- 中间入口卡片 -->
     <view class="mine__card">
-      <view class="mine__entry" @tap="showComingSoon('我报名的活动')">
+      <view class="mine__entry" @tap="openParticipations">
         <text class="mine__entry-icon">🎯</text>
         <text class="mine__entry-label">我报名的活动</text>
         <text class="mine__entry-arrow">›</text>
       </view>
       <view class="mine__divider" />
-      <view class="mine__entry" @tap="showComingSoon('我收藏的活动')">
+      <view class="mine__entry" @tap="openFavorites">
         <text class="mine__entry-icon">⭐</text>
         <text class="mine__entry-label">我收藏的活动</text>
         <text class="mine__entry-arrow">›</text>
@@ -104,7 +112,7 @@ onShow(() => {
 
     <!-- 底部设置项 -->
     <view class="mine__card mine__card--settings">
-      <view class="mine__entry" @tap="showComingSoon('账号设置')">
+      <view class="mine__entry" @tap="openAccountSettings">
         <text class="mine__entry-icon">⚙️</text>
         <text class="mine__entry-label">账号设置</text>
         <text class="mine__entry-arrow">›</text>

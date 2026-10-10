@@ -11,6 +11,7 @@ const profile = ref(null)
 function formatTime(iso) {
   if (!iso) return ""
   const d = new Date(iso)
+  if (isNaN(d.getTime())) return ""
   const now = new Date()
   const diffMin = (now - d) / 60000
   if (diffMin < 1) return "刚刚"
@@ -19,7 +20,10 @@ function formatTime(iso) {
   if (diffHr < 24) return Math.floor(diffHr) + "小时前"
   const diffDay = diffHr / 24
   if (diffDay < 7) return Math.floor(diffDay) + "天前"
-  return (d.getMonth()+1) + "/" + d.getDate()
+  if (d.getFullYear() === now.getFullYear()) {
+    return `${d.getMonth() + 1}/${d.getDate()}`
+  }
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`
 }
 
 onMounted(async () => {
@@ -48,8 +52,10 @@ onMounted(async () => {
   }
 })
 
-function onConversationTap(id) {
-  uni.showToast({ title: "聊天详情开发中", icon: "none" })
+function onConversationTap(conv) {
+  uni.navigateTo({
+    url: `/pages/chat-detail/index?convId=${conv.id}&peerUserId=${conv.peerId}`
+  })
 }
 </script>
 
@@ -63,7 +69,7 @@ function onConversationTap(id) {
         v-for="c in conversations"
         :key="c.id"
         class="conv-item"
-        @tap="onConversationTap(c.id)"
+        @tap="onConversationTap(c)"
       >
         <view class="conv-avatar">{{ c.peerName.charAt(0) }}</view>
         <view class="conv-body">

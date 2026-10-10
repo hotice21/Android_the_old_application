@@ -42,7 +42,7 @@ RUN mkdir -p /data/eligo-files \
 
 COPY --from=build /workspace/app.jar ./app.jar
 
-ENV JAVA_OPTS="-XX:+UseG1GC -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+ENV JAVA_OPTS="-XX:+UseG1GC -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom -Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8"
 ENV SPRING_PROFILES_ACTIVE=docker
 
 EXPOSE 8080

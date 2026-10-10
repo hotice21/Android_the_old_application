@@ -86,6 +86,56 @@
         "disableScroll": true,
         "backgroundColor": "#f6f7fb"
       }
+    },
+    {
+      "path": "pages/post-create/index",
+      "style": {
+        "navigationStyle": "custom",
+        "backgroundColor": "#f6f7fb"
+      }
+    },
+    {
+      "path": "pages/chat-detail/index",
+      "style": {
+        "navigationStyle": "custom",
+        "disableScroll": true,
+        "backgroundColor": "#f6f7fb"
+      }
+    },
+    {
+      "path": "pages/mine/participations/index",
+      "style": {
+        "navigationStyle": "custom",
+        "backgroundColor": "#f6f7fb"
+      }
+    },
+    {
+      "path": "pages/mine/favorites/index",
+      "style": {
+        "navigationStyle": "custom",
+        "backgroundColor": "#f6f7fb"
+      }
+    },
+    {
+      "path": "pages/mine/friends/index",
+      "style": {
+        "navigationStyle": "custom",
+        "backgroundColor": "#f6f7fb"
+      }
+    },
+    {
+      "path": "pages/mine/account-settings/index",
+      "style": {
+        "navigationStyle": "custom",
+        "backgroundColor": "#f6f7fb"
+      }
+    },
+    {
+      "path": "pages/mine/profile-edit/index",
+      "style": {
+        "navigationStyle": "custom",
+        "backgroundColor": "#f6f7fb"
+      }
     }
   ],
   "globalStyle": {
