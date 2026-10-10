@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from "@dcloudio/uni-app"
+import { ref, onMounted } from "vue"
 import BottomNavigation from "../../components/BottomNavigation.vue"
 import { getMyConversations } from "../../api/chat"
 import { getMyProfile } from "../../api/profile"
