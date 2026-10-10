@@ -57,6 +57,14 @@
       }
     },
     {
+      "path": "pages/chat/index",
+      "style": {
+        "navigationStyle": "custom",
+        "disableScroll": true,
+        "backgroundColor": "#f6f7fb"
+      }
+    },
+    {
       "path": "pages/profile-edit/index",
       "style": {
         "navigationStyle": "custom",

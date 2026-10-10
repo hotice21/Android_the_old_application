@@ -134,7 +134,7 @@ onMounted(() => {
       </view>
     </scroll-view>
 
-    <BottomNavigation current="plaza" @plus="showDemo('发布')" />
+    <BottomNavigation current="plaza" />
   </view>
 </template>
 

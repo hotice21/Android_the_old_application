@@ -1,8 +1,5 @@
 <script setup>
-import { ref, computed } from "vue"
 import { requireLogin } from "../stores/entry"
-
-const emit = defineEmits(["plus"])
 
 const props = defineProps({
   current: {
@@ -11,14 +8,20 @@ const props = defineProps({
   },
 })
 
-// 4 个 tab + 中间凸起的发布按钮
-// glyph 对应页面传入的 current prop
+// 4 个平 tab：发帖 → 活动 → 聊天 → 我的
 const items = [
+  { label: "发帖", glyph: "post", page: "/pages/dynamic/index" },
   { label: "活动", glyph: "plaza", page: "/pages/plaza/index" },
-  { label: "聊天", glyph: "chat", page: "" },
-  // 中间留空给 plus button
+  { label: "聊天", glyph: "chat", page: "/pages/chat/index" },
   { label: "我的", glyph: "profile", page: "/pages/mine/index" },
 ]
+
+const glyphEmoji = {
+  post: "📝",
+  plaza: "🎯",
+  chat: "💬",
+  profile: "👤",
+}
 
 function onTabTap(item) {
   if (!item.glyph || item.glyph === props.current) return
@@ -29,56 +32,20 @@ function onTabTap(item) {
     uni.showToast({ title: `${item.label}功能开发中`, icon: "none" })
   }
 }
-
-function onPlusTap() {
-  if (!requireLogin()) return
-  emit("plus")
-}
 </script>
 
 <template>
   <view class="bottom-nav">
-    <!-- 左：活动 -->
     <view
+      v-for="item in items"
+      :key="item.glyph"
       class="bottom-nav__item"
-      :class="{ 'bottom-nav__item--active': props.current === 'plaza' }"
-      @tap="onTabTap(items[0])"
+      :class="{ 'bottom-nav__item--active': props.current === item.glyph }"
+      @tap="onTabTap(item)"
     >
-      <text class="bottom-nav__emoji">{{ props.current === 'plaza' ? '🎯' : '🎯' }}</text>
-      <text class="bottom-nav__label">活动</text>
+      <text class="bottom-nav__emoji">{{ glyphEmoji[item.glyph] }}</text>
+      <text class="bottom-nav__label">{{ item.label }}</text>
     </view>
-
-    <!-- 中左：聊天 -->
-    <view
-      class="bottom-nav__item"
-      :class="{ 'bottom-nav__item--active': props.current === 'chat' }"
-      @tap="onTabTap(items[1])"
-    >
-      <text class="bottom-nav__emoji">{{ props.current === 'chat' ? '💬' : '💭' }}</text>
-      <text class="bottom-nav__label">聊天</text>
-    </view>
-
-    <!-- 中间：发布按钮（凸起） -->
-    <view class="bottom-nav__center">
-      <button class="bottom-nav__plus" aria-label="发布活动或动态" @tap="onPlusTap">
-        <text class="bottom-nav__plus-icon">+</text>
-      </button>
-      <text class="bottom-nav__center-label">发帖</text>
-    </view>
-
-    <!-- 中右：占位（让 plus 居中） -->
-    <view class="bottom-nav__placeholder" />
-
-    <!-- 右：我的 -->
-    <view
-      class="bottom-nav__item bottom-nav__item--right"
-      :class="{ 'bottom-nav__item--active': props.current === 'profile' }"
-      @tap="onTabTap(items[2])"
-    >
-      <text class="bottom-nav__emoji">{{ props.current === 'profile' ? '👤' : '👤' }}</text>
-      <text class="bottom-nav__label">我的</text>
-    </view>
-
     <view class="home-indicator" />
   </view>
 </template>
@@ -113,7 +80,7 @@ function onPlusTap() {
 }
 
 .bottom-nav__item--active {
-  color: #f56551;
+  color: #fe5f02;
 }
 
 .bottom-nav__emoji {
@@ -125,59 +92,6 @@ function onPlusTap() {
 .bottom-nav__label {
   font-size: 13px;
   font-weight: 500;
-}
-
-.bottom-nav__center {
-  position: relative;
-  flex: 1 1 0;
-  min-width: 60px;
-  height: 80px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.bottom-nav__placeholder {
-  flex: 1 1 0;
-  min-width: 60px;
-  height: 80px;
-}
-
-.bottom-nav__plus {
-  position: absolute;
-  top: -16px;
-  left: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: linear-gradient(140deg, #f56551, #ffb149);
-  box-shadow: 0 8px 18px rgba(245, 101, 81, 0.3);
-  transform: translateX(-50%);
-  box-sizing: border-box;
-}
-
-.bottom-nav__plus::after {
-  border: 0;
-}
-
-.bottom-nav__plus-icon {
-  font-size: 32px;
-  color: #ffffff;
-  font-weight: 300;
-  line-height: 1;
-}
-
-.bottom-nav__center-label {
-  position: absolute;
-  bottom: 10px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #999999;
 }
 
 .home-indicator {

@@ -119,6 +119,21 @@ function browseAsGuest() {
   uni.reLaunch({ url: normalizeGuestPageUrl(returnUrl.value) })
 }
 
+async function handleAnonymousLogin() {
+  busy.value = true
+  try {
+    // Dev模式后端固定 userId=1，直接标记引导已看过并跳 plaza
+    markEntryGuideSeen()
+    uni.setStorageSync("eligo.access-token", "dev-anonymous-token")
+    uni.showToast({ title: "已登录（测试账号）", icon: "none" })
+    setTimeout(() => {
+      uni.reLaunch({ url: returnUrl.value })
+    }, 500)
+  } finally {
+    busy.value = false
+  }
+}
+
 async function handleLogin() {
   if (busy.value) return
   if (!agreed.value) {
@@ -216,6 +231,13 @@ async function handleLogin() {
       @tap="handleLogin"
     >
       {{ loginLabel }}
+    </button>
+    <button
+      class="guest-login-button"
+      :disabled="busy"
+      @tap="handleAnonymousLogin"
+    >
+      匿名登录（测试）
     </button>
     <button
       class="browse-button"
@@ -427,8 +449,21 @@ async function handleLogin() {
 
 .browse-button::after,
 .login-button::after,
+.guest-login-button::after,
 .agreement__check::after {
   border: 0;
+}
+
+.guest-login-button {
+  margin: 6px auto 0;
+  min-height: 44px;
+  padding: 6px 24px;
+  border: 1px solid #fe5f02;
+  border-radius: 22px;
+  color: #fe5f02;
+  background: transparent;
+  font-size: 16px;
+  line-height: 28px;
 }
 
 .agreement {

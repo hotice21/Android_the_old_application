@@ -182,7 +182,7 @@ onMounted(() => {
       </view>
     </scroll-view>
 
-    <BottomNavigation current="discover" />
+    <BottomNavigation current="post" />
   </view>
 </template>
 
