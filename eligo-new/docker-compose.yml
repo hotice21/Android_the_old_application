@@ -95,6 +95,8 @@ services:
       retries: 5
 
   # H5 frontend served by nginx (proxies /api to the api service)
+  # ⚠️ 必须在 docker-compose.yml 所在目录 (eligo-new/) 运行 `docker compose up`
+  #    因为 build context 用了相对路径 ../eligo-frontend
   web:
     build:
       context: ../eligo-frontend
