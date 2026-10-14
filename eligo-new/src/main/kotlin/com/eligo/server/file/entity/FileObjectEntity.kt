@@ -36,6 +36,7 @@ class FileObjectEntity {
         const val PURPOSE_ACTIVITY = "ACTIVITY"
         const val PURPOSE_ACTIVITY_CONTACT_QR = "ACTIVITY_CONTACT_QR"
         const val PURPOSE_POST = "POST"
+        const val PURPOSE_VOICE = "VOICE"
         const val ACCESS_PUBLIC = 1
         const val ACCESS_PRIVATE = 2
         const val SCAN_PENDING = 1

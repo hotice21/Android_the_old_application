@@ -49,11 +49,14 @@ class DefaultFileService(
     override fun uploadImage(principal: UserPrincipal, file: MultipartFile?, purpose: String): FileView {
         if (file == null || file.isEmpty) throw unsupported()
         val normalizedPurpose = normalizePurpose(purpose)
-        val contentType = normalizeContentType(file.contentType)
+        val contentType = normalizeContentType(file.contentType, normalizedPurpose)
         val extension = extension(file.originalFilename)
-        validateExtension(contentType, extension)
+        validateExtension(contentType, extension, normalizedPurpose)
         val bytes = readWithinLimit(file)
-        inspector.inspect(contentType, bytes)
+        // VOICE 跳过图片内容扫描（文件头魔数校验）
+        if (normalizedPurpose != FileObjectEntity.PURPOSE_VOICE) {
+            inspector.inspect(contentType, bytes)
+        }
         val objectKey = storagePrefix(normalizedPurpose) + UUID.randomUUID() + "." + extension
         try {
             storage.save(objectKey, ByteArrayInputStream(bytes), bytes.size.toLong())
@@ -196,8 +199,16 @@ class DefaultFileService(
         return raw.substring(0, raw.length - 2).trim().toLong() * 1024 * 1024
     }
 
-    private fun normalizeContentType(value: String?): String {
+    private fun normalizeContentType(value: String?, purpose: String): String {
         val result = value?.lowercase(Locale.ROOT)?.trim() ?: ""
+        // 语音文件允许常见音频 MIME type
+        if (purpose == FileObjectEntity.PURPOSE_VOICE) {
+            if (result.startsWith("audio/") || result == "video/mp4") return result
+            // 前端 uni.getRecorderManager 默认输出的是 audio/webm 或 audio/mp3
+            if (result in setOf("audio/webm", "audio/mp3", "audio/mpeg", "audio/wav", "audio/aac", "audio/ogg", "audio/mp4")) return result
+            // 没 MIME type 时给个默认
+            return result.ifBlank { "audio/webm" }
+        }
         if (!properties.image.allowedContentTypes.contains(result)) throw unsupported()
         return result
     }
@@ -208,7 +219,8 @@ class DefaultFileService(
                 FileObjectEntity.PURPOSE_AVATAR,
                 FileObjectEntity.PURPOSE_ACTIVITY,
                 FileObjectEntity.PURPOSE_ACTIVITY_CONTACT_QR,
-                FileObjectEntity.PURPOSE_POST
+                FileObjectEntity.PURPOSE_POST,
+                FileObjectEntity.PURPOSE_VOICE
             ).contains(normalized)
         ) {
             throw BusinessException(CommonErrorCode.VALIDATION_FAILED)
@@ -221,7 +233,8 @@ class DefaultFileService(
         FileObjectEntity.PURPOSE_ACTIVITY -> "activities/"
         FileObjectEntity.PURPOSE_ACTIVITY_CONTACT_QR -> "activity-contact-qrs/"
         FileObjectEntity.PURPOSE_POST -> "posts/"
-        else -> throw IllegalArgumentException("图片用途非法")
+        FileObjectEntity.PURPOSE_VOICE -> "voices/"
+        else -> throw IllegalArgumentException("用途非法: $purpose")
     }
 
     private fun extension(filename: String?): String {
@@ -233,7 +246,13 @@ class DefaultFileService(
         return if ("jpeg" == extension) "jpg" else extension
     }
 
-    private fun validateExtension(contentType: String, extension: String) {
+    private fun validateExtension(contentType: String, extension: String, purpose: String) {
+        if (purpose == FileObjectEntity.PURPOSE_VOICE) {
+            // 语音允许的扩展名
+            val allowed = setOf("mp3", "wav", "m4a", "aac", "ogg", "webm", "mp4", "amr", "silk")
+            if (!allowed.contains(extension)) throw unsupported()
+            return
+        }
         val expected = if ("image/jpeg" == contentType) setOf("jpg") else setOf("png")
         if (!expected.contains(extension)) throw unsupported()
     }

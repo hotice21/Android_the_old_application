@@ -8,6 +8,8 @@ const selectedCategory = ref("")
 const images = ref([])
 const publishing = ref(false)
 const inputMode = ref("text") // "text" | "voice"
+const voiceRecording = ref(false)
+let postRecognition = null
 
 // 老年活动室的 tag
 const categories = [
@@ -36,7 +38,51 @@ function chooseCategory(code) {
 }
 
 function switchInputMode() {
+  // 切换前先停掉语音识别
+  if (voiceRecording.value && postRecognition) {
+    postRecognition.stop()
+    voiceRecording.value = false
+  }
   inputMode.value = inputMode.value === "text" ? "voice" : "text"
+}
+
+/** 底部语音转写：Web Speech API 录音 + 自动填回 content（发帖正文） */
+function togglePostVoice() {
+  const w = typeof window !== "undefined" ? window : null
+  const SpeechRecognition = w?.SpeechRecognition || w?.webkitSpeechRecognition
+  if (!SpeechRecognition) {
+    uni.showToast({ title: "当前环境不支持语音转写", icon: "none" })
+    return
+  }
+  if (voiceRecording.value && postRecognition) {
+    postRecognition.stop()
+    voiceRecording.value = false
+    return
+  }
+  postRecognition = new SpeechRecognition()
+  postRecognition.lang = "zh-CN"
+  postRecognition.interimResults = true
+  postRecognition.continuous = true
+  postRecognition.onstart = () => { voiceRecording.value = true }
+  postRecognition.onend = () => { voiceRecording.value = false }
+  postRecognition.onerror = (e) => {
+    voiceRecording.value = false
+    if (e.error !== "no-speech") {
+      uni.showToast({ title: "识别失败", icon: "none" })
+    }
+  }
+  postRecognition.onresult = (e) => {
+    let transcript = ""
+    for (let i = 0; i < e.results.length; i++) {
+      transcript += e.results[i][0].transcript
+    }
+    // 追加到现有正文末尾
+    content.value = content.value ? content.value + transcript : transcript
+  }
+  try { postRecognition.start() } catch {
+    voiceRecording.value = false
+    uni.showToast({ title: "无法启动语音识别", icon: "none" })
+  }
 }
 
 function chooseImages() {
@@ -176,8 +222,8 @@ async function doPublish() {
           @confirm="doPublish"
         />
       </view>
-      <view v-else class="bottom-input__voice" @tap="uni.showToast({title:'语音功能开发中',icon:'none'})">
-        <text class="voice-hint">🎤 按住说话（点击占位）</text>
+      <view v-else class="bottom-input__voice" :class="{ 'bottom-input__voice--recording': voiceRecording }" @tap="togglePostVoice">
+        <text class="voice-hint">{{ voiceRecording ? '🎙️ 识别中... 再点停止' : '🎤 点击说话（自动转文字）' }}</text>
       </view>
 
       <button
@@ -355,6 +401,15 @@ async function doPublish() {
   flex: 1;
   height: 40px; background: #f2f3f5; border-radius: 20px;
   display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
+}
+.bottom-input__voice--recording {
+  background: #ffd0d0;
+  animation: pulse 1.2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
 }
 .voice-hint { font-size: 14px; color: #6b7280; }
 

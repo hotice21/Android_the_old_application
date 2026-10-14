@@ -28,6 +28,8 @@ const comments = ref([])
 const commentLoading = ref(false)
 const commentText = ref("")
 const postingComment = ref(false)
+const commentRecording = ref(false)
+let recognition = null
 
 // 主办方关注状态（简化：不知道初始状态，先 false，点击后变 true）
 const followed = ref(false)
@@ -159,6 +161,51 @@ async function joinEvent() {
 
 function openRecommendation(item) {
   uni.navigateTo({ url: `/pages/detail/index?id=${item.id}` })
+}
+
+// ========== 语音转写（评论 / 发帖共用） ==========
+/**
+ * 浏览器 Web Speech API 录音 + 转文字，结果自动填入 commentText.value
+ * 如果浏览器不支持 SpeechRecognition，会 fallback 到 uni.getRecorderManager 录音（但无法自动转写）
+ */
+function toggleCommentVoice() {
+  // 1) 浏览器 Web Speech API 可用 → 直接用
+  const w = typeof window !== "undefined" ? window : null
+  const SpeechRecognition = w?.SpeechRecognition || w?.webkitSpeechRecognition
+  if (SpeechRecognition) {
+    if (commentRecording.value && recognition) {
+      recognition.stop()
+      commentRecording.value = false
+      return
+    }
+    recognition = new SpeechRecognition()
+    recognition.lang = "zh-CN"
+    recognition.interimResults = true
+    recognition.continuous = true
+    recognition.onstart = () => { commentRecording.value = true }
+    recognition.onend = () => { commentRecording.value = false }
+    recognition.onerror = (e) => {
+      commentRecording.value = false
+      if (e.error !== "no-speech") {
+        uni.showToast({ title: "语音识别失败", icon: "none" })
+      }
+    }
+    recognition.onresult = (e) => {
+      let transcript = ""
+      for (let i = 0; i < e.results.length; i++) {
+        transcript += e.results[i][0].transcript
+      }
+      commentText.value = transcript
+    }
+    try { recognition.start() } catch {
+      commentRecording.value = false
+      uni.showToast({ title: "无法启动语音识别", icon: "none" })
+    }
+    return
+  }
+
+  // 2) fallback：uni.getRecorderManager 录音（无自动转写）
+  uni.showToast({ title: "当前环境不支持语音转写，请直接输入文字", icon: "none" })
 }
 
 // ========== 评论 ==========
@@ -362,6 +409,9 @@ function formatCommentTime(iso) {
 
           <!-- 发表评论 -->
           <view class="comment-input">
+            <view class="comment-input__voice" :class="{ 'comment-input__voice--recording': commentRecording }" @tap="toggleCommentVoice">
+              <text>{{ commentRecording ? '⏹' : '🎤' }}</text>
+            </view>
             <input
               v-model="commentText"
               class="comment-input__field"
@@ -894,6 +944,26 @@ function formatCommentTime(iso) {
   align-items: center;
   gap: 10px;
   margin-bottom: 16px;
+}
+.comment-input__voice {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #f2f3f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 20px;
+  transition: all 0.2s;
+}
+.comment-input__voice--recording {
+  background: #ffd0d0;
+  animation: pulse 1.2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
 }
 .comment-input__field {
   flex: 1;

@@ -62,8 +62,13 @@ class LocalFileStorage(properties: FileStorageProperties) : FileStorage {
     }
 
     private fun validObjectKey(objectKey: String): Boolean {
-        return objectKey.matches(Regex("(avatars|activities|posts)/[0-9a-f-]+\\.(jpg|png)")) ||
-            objectKey.matches(Regex("exports/[0-9a-f-]+\\.zip"))
+        // 图片前缀目录 + 图片扩展名
+        val imageKey = objectKey.matches(Regex("(avatars|activities|posts|activity-contact-qrs)/[0-9a-f-]+\\.(jpg|png)"))
+        // 语音前缀目录 + 音频扩展名
+        val voiceKey = objectKey.matches(Regex("voices/[0-9a-f-]+\\.(mp3|wav|m4a|aac|ogg|webm|mp4|amr|silk)"))
+        // 数据导出
+        val exportKey = objectKey.matches(Regex("exports/[0-9a-f-]+\\.zip"))
+        return imageKey || voiceKey || exportKey
     }
 
     private fun resolve(objectKey: String): Path {
