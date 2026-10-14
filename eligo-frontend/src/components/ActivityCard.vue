@@ -13,7 +13,14 @@ const emit = defineEmits(["open", "join"])
   <view class="activity-card" @tap="emit('open', item)">
     <!-- Photo area on top -->
     <view class="activity-card__photo">
+      <image
+        v-if="item.coverUrl"
+        :src="item.coverUrl"
+        mode="aspectFill"
+        class="activity-card__image"
+      />
       <view
+        v-else
         class="activity-card__image placeholder-image placeholder-image--warm"
       />
 

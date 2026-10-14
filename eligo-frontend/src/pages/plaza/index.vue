@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue"
 import ActivityCard from "../../components/ActivityCard.vue"
 import BottomNavigation from "../../components/BottomNavigation.vue"
 import { getActivities } from "../../api/activity"
+import { API_BASE_URL } from "../../config/runtime"
 
 const activities = ref([])
 const loading = ref(false)
@@ -20,6 +21,11 @@ function mapActivity(item) {
     ? String(startsAt.getMinutes()).padStart(2, "0")
     : ""
 
+  // 拼接封面图完整 URL（后端返回的是相对路径 /api/v1/files/{id}/content）
+  const coverUrl = item.cover?.url
+    ? (item.cover.url.startsWith("http") ? item.cover.url : `${API_BASE_URL}${item.cover.url}`)
+    : null
+
   return {
     id: item.activityId,
     title: item.title,
@@ -36,6 +42,7 @@ function mapActivity(item) {
     placeName: item.placeName || "",
     addressDetail: item.addressDetail || "",
     categoryCode: item.categoryCode,
+    coverUrl,
   }
 }
 

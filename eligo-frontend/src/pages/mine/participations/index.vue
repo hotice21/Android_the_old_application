@@ -25,8 +25,7 @@ async function loadList() {
   error.value = ""
   try {
     const data = await request({ path: "/api/v1/users/me/participations" })
-    items.value = data?.items || Array.isArray(data) ? (Array.isArray(data) ? data : []) : []
-    if (data?.items) items.value = data.items
+    items.value = data?.items || (Array.isArray(data) ? data : [])
   } catch (err) {
     error.value = err?.message || "加载失败"
   } finally {

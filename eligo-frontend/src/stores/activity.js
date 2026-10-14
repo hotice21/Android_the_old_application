@@ -38,9 +38,9 @@ async function fetchList(reset = false) {
       pageSize: 10,
       category: state.category === "关注" ? undefined : state.category,
     })
-    if (data && data.list) {
-      state.list = reset ? data.list : [...state.list, ...data.list]
-      state.hasMore = data.list.length >= 10
+    if (data && data.items) {
+      state.list = reset ? data.items : [...state.list, ...data.items]
+      state.hasMore = data.items.length >= 10
       state.page++
     }
   } catch {

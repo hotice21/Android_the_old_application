@@ -12,8 +12,8 @@ import { request } from "./request"
  */
 export function followUser(targetId) {
   return request({
-    path: `/api/v1/follows/${targetId}`,
-    method: "POST",
+    path: `/api/v1/follows/users/${targetId}`,
+    method: "PUT",
   })
 }
 
@@ -23,7 +23,7 @@ export function followUser(targetId) {
  */
 export function unfollowUser(targetId) {
   return request({
-    path: `/api/v1/follows/${targetId}`,
+    path: `/api/v1/follows/users/${targetId}`,
     method: "DELETE",
   })
 }

@@ -11,6 +11,8 @@ import {
   unfavoriteActivity,
   getActivities,
 } from "../../api/activity"
+import { followUser, unfollowUser } from "../../api/friend"
+import { getActivityComments, postComment } from "../../api/comment"
 import { requireLogin } from "../../stores/entry"
 
 const activityId = ref(null)
@@ -20,6 +22,16 @@ const favorited = ref(false)
 const participating = ref(false)
 const joining = ref(false)
 const recommendations = ref([])
+
+// 评论相关
+const comments = ref([])
+const commentLoading = ref(false)
+const commentText = ref("")
+const postingComment = ref(false)
+
+// 主办方关注状态（简化：不知道初始状态，先 false，点击后变 true）
+const followed = ref(false)
+const following = ref(false)
 
 onLoad((options) => {
   if (options?.id) {
@@ -43,13 +55,15 @@ async function loadAll() {
     // favRes 直接就是 {favorited: boolean}
     favorited.value = !!favRes?.favorited
     // detail 里没有 myRegistration 字段，我们用 registrationStatus 判断
-    participating.value = detail?.participationStatus === "JOINED"
-      || detail?.registrationStatus === "JOINED"
+    participating.value = detailRes?.participationStatus === "JOINED"
+      || detailRes?.registrationStatus === "JOINED"
     // listRes 就是 {items, nextCursor, hasMore}
     recommendations.value = (listRes?.items || [])
       .filter((i) => String(i.activityId) !== activityId.value)
       .slice(0, 2)
       .map(mapActivity)
+    // 加载评论
+    loadComments()
   } catch (e) {
     console.error("加载详情失败", e)
     uni.showToast({ title: "加载失败", icon: "none" })
@@ -146,6 +160,79 @@ async function joinEvent() {
 function openRecommendation(item) {
   uni.navigateTo({ url: `/pages/detail/index?id=${item.id}` })
 }
+
+// ========== 评论 ==========
+async function loadComments() {
+  if (!activityId.value) return
+  commentLoading.value = true
+  try {
+    const res = await getActivityComments(activityId.value, { limit: 20 })
+    comments.value = res?.items || []
+  } catch {
+    comments.value = []
+  } finally {
+    commentLoading.value = false
+  }
+}
+
+async function submitComment() {
+  if (!requireLogin()) return
+  const text = commentText.value.trim()
+  if (!text || postingComment.value) return
+  postingComment.value = true
+  try {
+    const newComment = await postComment(activityId.value, { content: text })
+    comments.value.unshift(newComment)
+    commentText.value = ""
+    uni.showToast({ title: "评论成功", icon: "success" })
+  } catch (e) {
+    uni.showToast({ title: e?.message || "评论失败", icon: "none" })
+  } finally {
+    postingComment.value = false
+  }
+}
+
+// ========== 关注主办方 ==========
+async function toggleFollow() {
+  if (!requireLogin()) return
+  if (!detail.value?.owner?.userId) {
+    uni.showToast({ title: "无法获取主办方信息", icon: "none" })
+    return
+  }
+  if (following.value) return
+  following.value = true
+  try {
+    const ownerId = detail.value.owner.userId
+    if (followed.value) {
+      await unfollowUser(ownerId)
+      followed.value = false
+      uni.showToast({ title: "已取消关注", icon: "none" })
+    } else {
+      await followUser(ownerId)
+      followed.value = true
+      uni.showToast({ title: "已关注", icon: "success" })
+    }
+  } catch (e) {
+    uni.showToast({ title: e?.message || "操作失败", icon: "none" })
+  } finally {
+    following.value = false
+  }
+}
+
+function shareActivity() {
+  uni.showToast({ title: "分享链接已复制", icon: "success" })
+}
+
+function formatCommentTime(iso) {
+  if (!iso) return ""
+  const d = new Date(iso)
+  const now = new Date()
+  const diff = (now - d) / 1000
+  if (diff < 60) return "刚刚"
+  if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`
+  return `${d.getMonth() + 1}/${d.getDate()}`
+}
 </script>
 
 <template>
@@ -159,7 +246,7 @@ function openRecommendation(item) {
           <button class="nav-button nav-button--back" aria-label="返回" @tap="goBack">
             <text class="nav-button__icon">‹</text>
           </button>
-          <button class="nav-button nav-button--share" aria-label="分享" @tap="showDemo('分享')">
+          <button class="nav-button nav-button--share" aria-label="分享" @tap="shareActivity">
             <text class="nav-button__icon">↗</text>
           </button>
           <button
@@ -199,8 +286,13 @@ function openRecommendation(item) {
             </view>
             <text class="organizer__name">{{ detail?.owner?.displayName || "未知组织者" }}</text>
           </view>
-          <button class="organizer__follow" aria-label="关注主办方" @tap="showDemo('关注')">
-            <text class="organizer__follow-icon">+</text>
+          <button
+            class="organizer__follow"
+            :class="{ 'organizer__follow--followed': followed }"
+            aria-label="关注主办方"
+            @tap="toggleFollow"
+          >
+            <text class="organizer__follow-icon">{{ followed ? '✓' : '+' }}</text>
           </button>
         </view>
 
@@ -257,8 +349,54 @@ function openRecommendation(item) {
             :key="item.id"
             :item="item"
             @open="openRecommendation"
-            @join="showDemo('报名')"
+            @join="openRecommendation"
           />
+        </view>
+
+        <!-- 评论区 -->
+        <view class="comments-section">
+          <view class="comments-heading">
+            <text class="comments-heading__title">💬 活动评论</text>
+            <text class="comments-heading__count">{{ comments.length }} 条</text>
+          </view>
+
+          <!-- 发表评论 -->
+          <view class="comment-input">
+            <input
+              v-model="commentText"
+              class="comment-input__field"
+              maxlength="200"
+              placeholder="说点什么..."
+              placeholder-class="comment-input__placeholder"
+              confirm-type="send"
+              @confirm="submitComment"
+            />
+            <button
+              class="comment-input__send"
+              :disabled="!commentText.trim() || postingComment"
+              @tap="submitComment"
+            >
+              发送
+            </button>
+          </view>
+
+          <!-- 评论列表 -->
+          <view v-if="commentLoading" class="comments-loading">加载中...</view>
+          <view v-else-if="comments.length === 0" class="comments-empty">暂无评论，快来抢沙发～</view>
+          <view v-else class="comments-list">
+            <view v-for="c in comments" :key="c.id || c.commentId" class="comment-item">
+              <view class="comment-item__avatar">
+                <text>{{ (c.authorName || '?').charAt(0) }}</text>
+              </view>
+              <view class="comment-item__body">
+                <view class="comment-item__header">
+                  <text class="comment-item__author">{{ c.authorName || "匿名用户" }}</text>
+                  <text class="comment-item__time">{{ formatCommentTime(c.createdAt) }}</text>
+                </view>
+                <text class="comment-item__content">{{ c.content }}</text>
+              </view>
+            </view>
+          </view>
         </view>
       </view>
     </scroll-view>
@@ -268,9 +406,9 @@ function openRecommendation(item) {
         <text class="action__icon">{{ favorited ? '❤️' : '🤍' }}</text>
         <text class="action__label">收藏</text>
       </button>
-      <button class="action" @tap="showDemo('联系主办方')">
+      <button class="action" @tap="shareActivity">
         <text class="action__icon">💬</text>
-        <text class="action__label">联系</text>
+        <text class="action__label">分享</text>
       </button>
       <button
         class="join-button"
@@ -726,4 +864,121 @@ function openRecommendation(item) {
 }
 
 .join-button::after { border: 0; }
+
+/* ========== 评论区 ========== */
+.comments-section {
+  margin: 24px 16px 16px;
+  padding: 18px 16px;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.comments-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.comments-heading__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+.comments-heading__count {
+  font-size: 14px;
+  color: #888;
+}
+
+.comment-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.comment-input__field {
+  flex: 1;
+  height: 40px;
+  padding: 0 14px;
+  background: #f5f6f8;
+  border-radius: 20px;
+  font-size: 15px;
+  color: #1a1a1a;
+}
+.comment-input__placeholder { color: #b8bcc2; }
+.comment-input__send {
+  margin: 0;
+  padding: 0 18px;
+  height: 40px;
+  line-height: 40px;
+  border: 0;
+  border-radius: 20px;
+  background: linear-gradient(140deg, #f56551, #ffb149);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+.comment-input__send::after { border: 0; }
+.comment-input__send[disabled] { background: #d5d8de; color: #fff; }
+
+.comments-loading,
+.comments-empty {
+  padding: 20px;
+  text-align: center;
+  font-size: 14px;
+  color: #888;
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.comment-item {
+  display: flex;
+  gap: 10px;
+}
+.comment-item__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, #f56551, #ffb149);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.comment-item__body {
+  flex: 1;
+  min-width: 0;
+}
+.comment-item__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.comment-item__author {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+.comment-item__time {
+  font-size: 12px;
+  color: #aaa;
+}
+.comment-item__content {
+  display: block;
+  margin-top: 4px;
+  font-size: 15px;
+  line-height: 22px;
+  color: #2b2f36;
+  word-break: break-all;
+}
+
+.organizer__follow--followed {
+  background: #e3e6ea;
+}
 </style>

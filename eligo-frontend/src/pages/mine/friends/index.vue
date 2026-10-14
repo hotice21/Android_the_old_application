@@ -20,20 +20,32 @@ function avatarChar(f) {
 }
 
 function openChat(f) {
-  uni.navigateTo({ url: `/pages/chat-detail/index?convId=0&peerUserId=${f.userId}` })
+  uni.navigateTo({ url: `/pages/chat-detail/index?peerUserId=${f.userId}` })
 }
 
-function showAddFriend() {
-  uni.showModal({
-    title: "添加好友",
-    editable: true,
-    placeholderText: "请输入好友 userId",
-    success(res) {
-      if (res.confirm && res.content?.trim()) {
-        uni.showToast({ title: "好友请求已发送（占位）", icon: "none" })
-      }
-    },
+async function showAddFriend() {
+  const res = await new Promise((resolve) => {
+    uni.showModal({
+      title: "添加好友",
+      editable: true,
+      placeholderText: "请输入好友 userId（如 2、3、4）",
+      success: resolve,
+      fail: () => resolve({ confirm: false }),
+    })
   })
+  if (res.confirm && res.content?.trim()) {
+    const targetId = res.content.trim()
+    try {
+      await request({
+        path: `/api/v1/friends/${targetId}/request`,
+        method: "POST",
+      })
+      uni.showToast({ title: "好友请求已发送", icon: "success" })
+      loadFriends()
+    } catch (err) {
+      uni.showToast({ title: err?.message || "请求失败", icon: "none" })
+    }
+  }
 }
 
 async function loadFriends() {
@@ -41,7 +53,7 @@ async function loadFriends() {
   error.value = ""
   try {
     const data = await request({ path: "/api/v1/users/me/friends" })
-    friends.value = Array.isArray(data) ? data : data?.items || []
+    friends.value = Array.isArray(data) ? data : (data?.items || [])
   } catch (err) {
     error.value = err?.message || "加载失败"
   } finally {
